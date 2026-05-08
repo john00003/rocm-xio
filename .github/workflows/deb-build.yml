@@ -31,6 +31,7 @@ jobs:
       options: --user root
     env:
       LD_LIBRARY_PATH: /opt/rocm/lib:/usr/lib/x86_64-linux-gnu
+      GEN_CHANGELOG_ROLLING: '1'
 
     steps:
     - name: Check out code
@@ -63,6 +64,9 @@ jobs:
     - name: Show generated changelog
       run: cat debian/changelog
 
+    - name: Show generated release notes
+      run: cat debian/generated-release-notes.md
+
     - name: Build .deb packages
       run: dpkg-buildpackage -us -uc -b
 
@@ -89,21 +93,13 @@ jobs:
         name: rocm-xio-debs-${{ github.sha }}
         path: built-debs/
 
-    - name: Update rolling latest pre-release
+    - name: Update rolling package pre-release
       if: github.event_name == 'push' && github.ref == 'refs/heads/main'
       uses: softprops/action-gh-release@v2
       with:
-        tag_name: latest
-        name: Latest development build
-        body: |
-          Rolling pre-release built from the latest commit on `main`.
-
-          **Commit:** ${{ github.sha }}
-          **Built:** ${{ github.event.head_commit.timestamp }}
-
-          These packages are rebuilt on every push to `main` and may not
-          be as stable as tagged releases. For production use, prefer a
-          tagged `vX.Y.Z` release.
+        tag_name: rocm-xio-latest
+        name: Latest package build (main)
+        body_path: debian/generated-release-notes.md
         prerelease: true
         make_latest: false
         files: built-debs/*
