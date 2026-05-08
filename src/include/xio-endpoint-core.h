@@ -26,10 +26,10 @@ namespace xio {
  * Tracks min, max, sum, and count of IO completion times.
  */
 struct XioTimingStats {
-  unsigned long long int minDuration = ULLONG_MAX;
-  unsigned long long int maxDuration = 0;
-  unsigned long long int sumDuration = 0;
-  unsigned long long int count = 0;
+  unsigned long long int minDuration = ULLONG_MAX; /**< Shortest duration. */
+  unsigned long long int maxDuration = 0;          /**< Longest duration. */
+  unsigned long long int sumDuration = 0;          /**< Sum of durations. */
+  unsigned long long int count = 0;                /**< Samples recorded. */
 };
 
 /**
@@ -79,27 +79,34 @@ struct XioSubstepStats {
  * configuration structures via the endpointConfig pointer.
  */
 struct XioEndpointConfig {
-  unsigned iterations = 128;
-  unsigned numThreads = 1;
-  long long delayNs = 0;
-  unsigned memoryMode = 0;
-  bool verbose = false;
-  bool pciMmioBridge = false;
+  unsigned iterations = 128;  /**< Operations or loop iterations to run. */
+  unsigned numThreads = 1;    /**< GPU work-items or endpoint queues. */
+  long long delayNs = 0;      /**< Optional inter-operation delay in ns. */
+  unsigned memoryMode = 0;    /**< XIO_MEM_MODE_* queue and data flags. */
+  bool verbose = false;       /**< Enable endpoint-specific verbose logs. */
+  bool pciMmioBridge = false; /**< Route MMIO doorbells through bridge. */
 
-  unsigned long long int* startTimes = nullptr;
-  unsigned long long int* endTimes = nullptr;
-  XioTimingStats* timingStats = nullptr;
-  XioSubstepStats* substepStats = nullptr;
+  unsigned long long int* startTimes = nullptr; /**< Per-op start times. */
+  unsigned long long int* endTimes = nullptr;   /**< Per-op end times. */
+  XioTimingStats* timingStats = nullptr;        /**< Aggregate timing. */
+  XioSubstepStats* substepStats = nullptr;      /**< Hot-path breakdown. */
 
-  void* submissionQueue = nullptr;
-  void* completionQueue = nullptr;
-  volatile bool* stopRequested = nullptr;
-  void* endpointConfig = nullptr;
+  void* submissionQueue = nullptr;        /**< GPU-visible submission queue. */
+  void* completionQueue = nullptr;        /**< GPU-visible completion queue. */
+  volatile bool* stopRequested = nullptr; /**< Shared SIGINT stop flag. */
+  void* endpointConfig = nullptr; /**< Endpoint-specific config object. */
 
-  uint32_t verifyPass = 0;
-  uint32_t verifyFail = 0;
+  uint32_t verifyPass = 0; /**< Successful verification count. */
+  uint32_t verifyFail = 0; /**< Failed verification count. */
 
+  /** @brief Construct a config with default values. */
   XioEndpointConfig() = default;
+
+  /**
+   * @brief Construct a config with explicit iteration and thread counts.
+   * @param iter Operations or loop iterations to run.
+   * @param threads GPU work-items or endpoint queues.
+   */
   XioEndpointConfig(unsigned iter, unsigned threads = 1)
     : iterations(iter), numThreads(threads) {
   }
@@ -113,21 +120,37 @@ struct XioEndpointConfig {
  */
 class XIO_API XioEndpoint {
 public:
+  /** @brief Destroy an endpoint implementation. */
   virtual ~XioEndpoint() = default;
 
-  /** @brief Get the endpoint type identifier. */
+  /**
+   * @brief Get the endpoint type identifier.
+   * @return Generated endpoint type for this implementation.
+   */
   __host__ virtual EndpointType getType() const = 0;
 
-  /** @brief Get the endpoint name string. */
+  /**
+   * @brief Get the endpoint name string.
+   * @return Stable CLI and factory name for this endpoint.
+   */
   __host__ virtual const char* getName() const = 0;
 
-  /** @brief Get a human-readable description. */
+  /**
+   * @brief Get a human-readable description.
+   * @return Static endpoint description string.
+   */
   __host__ virtual const char* getDescription() const = 0;
 
-  /** @brief Get submission queue entry size in bytes. */
+  /**
+   * @brief Get submission queue entry size in bytes.
+   * @return Size of one SQE, or 0 when the endpoint has no SQE type.
+   */
   __host__ virtual size_t getSubmissionQueueEntrySize() const = 0;
 
-  /** @brief Get completion queue entry size in bytes. */
+  /**
+   * @brief Get completion queue entry size in bytes.
+   * @return Size of one CQE, or 0 when the endpoint has no CQE type.
+   */
   __host__ virtual size_t getCompletionQueueEntrySize() const = 0;
 
   /**

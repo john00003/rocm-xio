@@ -24,7 +24,7 @@
 #include "xio-endpoint-registry.h"
 #include "xio-export.h"
 
-// ROCm-XIO kernel module device path (same as kernel uapi header convention)
+/** @brief Default rocm-xio kernel module character-device path. */
 #ifndef ROCM_XIO_DEVICE_PATH
 #define ROCM_XIO_DEVICE_PATH "/dev/rocm-xio"
 #endif
@@ -54,34 +54,49 @@
     _xio_hip_status;                                                           \
   }))
 
-// Memory mode flags (bits in memoryMode field)
+/** @brief Place the submission queue in GPU device memory. */
 #define XIO_MEM_MODE_SQ_DEVICE 0x1
+/** @brief Place the completion queue in GPU device memory. */
 #define XIO_MEM_MODE_CQ_DEVICE 0x2
+/** @brief Place doorbell state in GPU device memory. */
 #define XIO_MEM_MODE_DOORBELL_DEVICE 0x4
+/** @brief Place endpoint data buffers in GPU device memory. */
 #define XIO_MEM_MODE_DATA_DEVICE 0x8
 
-// Device memory allocation flags for allocDeviceMemory()
+/** @brief Allocate fine-grained HSA device memory. */
 #define XIO_DEVICE_MEM_FINE_GRAINED 0x0
+/** @brief Allocate coarse-grained HSA device memory. */
 #define XIO_DEVICE_MEM_COARSE_GRAINED 0x1
+/** @brief Allocate uncached HIP extended device memory. */
 #define XIO_DEVICE_MEM_UNCACHED 0x2
+/** @brief Allocate memory through HIP virtual memory APIs. */
 #define XIO_DEVICE_MEM_VMEM 0x4
+/** @brief Allocate memory through hipMalloc. */
 #define XIO_DEVICE_MEM_HIP 0x8
 
-// Host memory allocation flags for allocHostMemory()
+/** @brief Allocate host memory mapped into the GPU address space. */
 #define XIO_HOST_MEM_MAPPED 0x0
+/** @brief Allocate coherent host memory for PCIe-visible queues. */
 #define XIO_HOST_MEM_COHERENT 0x1
+/** @brief Allocate pinned host memory. */
 #define XIO_HOST_MEM_PINNED 0x2
+/** @brief Allocate ordinary pageable host memory. */
 #define XIO_HOST_MEM_PLAIN 0x4
+/** @brief Use the default host allocation policy. */
 #define XIO_HOST_MEM_DEFAULT 0x8
 
-// PCI MMIO Bridge command types
+/** @brief PCI MMIO bridge no-op command. */
 #define PCI_MMIO_BRIDGE_CMD_NOP 0
+/** @brief PCI MMIO bridge write command. */
 #define PCI_MMIO_BRIDGE_CMD_WRITE 1
+/** @brief PCI MMIO bridge read command. */
 #define PCI_MMIO_BRIDGE_CMD_READ 2
 
-// PCI MMIO Bridge status codes
+/** @brief PCI MMIO bridge command has not completed. */
 #define PCI_MMIO_BRIDGE_STATUS_PENDING 0
+/** @brief PCI MMIO bridge command completed successfully. */
 #define PCI_MMIO_BRIDGE_STATUS_COMPLETE 1
+/** @brief PCI MMIO bridge command completed with an error. */
 #define PCI_MMIO_BRIDGE_STATUS_ERROR 2
 
 #include "xio-endpoint-core.h"
@@ -320,9 +335,9 @@ __host__ std::string extractEndpointName(int argc, char** argv);
  * @brief Resolved NVMe controller and namespace paths.
  */
 struct NvmeDevicePath {
-  std::string namespacePath;
-  std::string controllerPath;
-  std::string controllerName;
+  std::string namespacePath;  /**< Namespace path used for I/O, if any. */
+  std::string controllerPath; /**< Controller path for admin commands. */
+  std::string controllerName; /**< Sysfs controller name, e.g. nvme0. */
 };
 
 /**
@@ -429,12 +444,12 @@ __host__ int exportRegVramBuf(void* vram_ptr, size_t size, uint16_t nvme_bdf,
  * @brief Buffer allocation result structure.
  */
 struct xioBufferInfo {
-  void* hostPtr;
-  void* gpuPtr;
-  uint64_t dmaAddr;
-  bool isDeviceMemory;
-  uint64_t* pagePhysAddrs;
-  uint32_t numPages;
+  void* hostPtr;           /**< CPU-accessible allocation pointer. */
+  void* gpuPtr;            /**< GPU-accessible pointer to the buffer. */
+  uint64_t dmaAddr;        /**< DMA address for device-backed buffers. */
+  bool isDeviceMemory;     /**< true when allocated in GPU memory. */
+  uint64_t* pagePhysAddrs; /**< Host-buffer physical address per page. */
+  uint32_t numPages;       /**< Number of entries in pagePhysAddrs. */
 };
 
 /**
@@ -543,15 +558,15 @@ int kmodRegQueue(int kmod_fd, void* virt_addr, uint64_t phys_addr, size_t size,
  * @brief Queue setup structure for unified initialization.
  */
 struct xioQueueSetup {
-  void* virt;
-  void* gpu;
-  uint64_t phys;
-  bool uses_coherent;
-  void* prp_list;
-  uint64_t prp_list_phys;
-  uint64_t prp2;
-  bool uses_contig;
-  uint32_t contig_id;
+  void* virt;             /**< CPU-accessible queue base. */
+  void* gpu;              /**< GPU-accessible queue base. */
+  uint64_t phys;          /**< Physical or DMA address for queue base. */
+  bool uses_coherent;     /**< Queue was reallocated as coherent host mem. */
+  void* prp_list;         /**< CPU pointer to queue PRP list, if needed. */
+  uint64_t prp_list_phys; /**< Physical address of prp_list. */
+  uint64_t prp2;          /**< NVMe PRP2 value for multi-page queues. */
+  bool uses_contig;       /**< Queue was allocated by kernel contig path. */
+  uint32_t contig_id;     /**< mmap offset identifying contig allocation. */
 };
 
 /**
@@ -919,10 +934,10 @@ __host__ __device__ static inline void ringDoorbellFenced(void* base_addr,
  *        (matches QEMU device).
  */
 struct pci_mmio_bridge_ring_meta {
-  uint32_t producer_idx;
-  uint32_t consumer_idx;
-  uint32_t queue_depth;
-  uint32_t reserved;
+  uint32_t producer_idx; /**< Next command slot produced by the GPU. */
+  uint32_t consumer_idx; /**< Next command slot consumed by the bridge. */
+  uint32_t queue_depth;  /**< Number of command entries in the ring. */
+  uint32_t reserved;     /**< Reserved for ABI alignment; must be zero. */
 } __attribute__((packed));
 
 /**
@@ -930,16 +945,16 @@ struct pci_mmio_bridge_ring_meta {
  *        (matches QEMU device).
  */
 struct pci_mmio_bridge_command {
-  uint16_t target_bdf;
-  uint8_t target_bar;
-  uint8_t reserved1;
-  uint32_t offset;
-  uint64_t value;
-  uint8_t command;
-  uint8_t size;
-  uint8_t status;
-  uint8_t reserved2;
-  uint32_t sequence;
+  uint16_t target_bdf; /**< Target PCI device in 0xBBDD form. */
+  uint8_t target_bar;  /**< Target BAR number. */
+  uint8_t reserved1;   /**< Reserved padding; must be zero. */
+  uint32_t offset;     /**< Byte offset within the target BAR. */
+  uint64_t value;      /**< Write value or read result. */
+  uint8_t command;     /**< PCI_MMIO_BRIDGE_CMD_* command code. */
+  uint8_t size;        /**< Transfer size in bytes: 1, 2, 4, or 8. */
+  uint8_t status;      /**< PCI_MMIO_BRIDGE_STATUS_* completion code. */
+  uint8_t reserved2;   /**< Reserved padding; must be zero. */
+  uint32_t sequence;   /**< Monotonic command sequence number. */
 } __attribute__((packed));
 
 /**

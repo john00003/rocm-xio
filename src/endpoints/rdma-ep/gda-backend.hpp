@@ -28,11 +28,12 @@ namespace rdma_ep {
 
 class QueuePair;
 
+/** @brief Queue-pair connection parameters exchanged between RDMA peers. */
 struct DestInfo {
-  int lid;
-  int qpn;
-  int psn;
-  union ibv_gid gid;
+  int lid;           /**< Local identifier for InfiniBand transports. */
+  int qpn;           /**< Queue-pair number. */
+  int psn;           /**< Packet sequence number used for RTR transition. */
+  union ibv_gid gid; /**< RoCE global identifier. */
 };
 
 /**
@@ -43,92 +44,144 @@ struct DestInfo {
  * create QPs/CQs, allocate queue memory, and connect the local or remote peer.
  */
 struct BackendConfig {
-  Provider provider{Provider::BNXT};
-  int gpu_device_id{0};
-  int sq_depth{256};
-  int cq_depth{256};
-  uint32_t inline_threshold{28};
-  bool pcie_relaxed_ordering{false};
-  int traffic_class{0};
-  bool loopback{true};
-  DestInfo remote{};
-  const char* hca_list{nullptr};
-  bool pci_mmio_bridge{false};
-  QueueMemMode queue_mem{QueueMemMode::HOST_COHERENT};
+  Provider provider{Provider::BNXT}; /**< Provider backend to open. */
+  int gpu_device_id{0};              /**< HIP GPU device index. */
+  int sq_depth{256};                 /**< Send queue depth in WQEs. */
+  int cq_depth{256};                 /**< Completion queue depth in CQEs. */
+  uint32_t inline_threshold{28};     /**< Max bytes posted inline. */
+  bool pcie_relaxed_ordering{false}; /**< Enable PCIe relaxed ordering. */
+  int traffic_class{0};              /**< RoCE traffic class for AH attrs. */
+  bool loopback{true};               /**< Connect the QP to itself. */
+  DestInfo remote{};                 /**< Remote peer for non-loopback. */
+  const char* hca_list{nullptr};     /**< Optional HCA include/exclude list. */
+  bool pci_mmio_bridge{false};       /**< Route doorbells through bridge. */
+  QueueMemMode queue_mem{QueueMemMode::HOST_COHERENT}; /**< Queue memory. */
 };
 
+/** @brief Host-side owner for one provider-specific RDMA QP/CQ pair. */
 class Backend {
 public:
+  /**
+   * @brief Store backend configuration.
+   * @param config Runtime RDMA backend configuration.
+   */
   explicit Backend(const BackendConfig& config);
+
+  /** @brief Release RDMA and provider resources. */
   ~Backend();
 
+  /**
+   * @brief Open the device, create queues, and initialize GPU state.
+   * @return 0 on success, -1 on failure.
+   */
   int init();
+
+  /** @brief Tear down resources allocated by init(). */
   void shutdown();
 
+  /**
+   * @brief Return the GPU-resident QueuePair object.
+   * @return Pointer to the GPU QueuePair state.
+   */
   QueuePair* get_gpu_qp() {
     return gpu_qp_;
   }
+  /**
+   * @brief Return the resolved provider backend.
+   * @return Provider selected during initialization.
+   */
   Provider get_provider() const {
     return provider_;
   }
+  /**
+   * @brief Return the opened verbs context.
+   * @return Active verbs context, or nullptr before init().
+   */
   struct ibv_context* get_context() const {
     return context_;
   }
+  /**
+   * @brief Return the protection domain used by the QP.
+   * @return Active protection domain, or nullptr before init().
+   */
   struct ibv_pd* get_pd() const {
     return pd_;
   }
+  /**
+   * @brief Return the host verbs QP.
+   * @return Active verbs QP, or nullptr before init().
+   */
   struct ibv_qp* get_ibv_qp() const {
     return qp_;
   }
+  /**
+   * @brief Return the host verbs CQ.
+   * @return Active verbs CQ, or nullptr before init().
+   */
   struct ibv_cq* get_ibv_cq() const {
     return cq_;
   }
+  /**
+   * @brief Return the host mirror of the QueuePair state.
+   * @return Host QueuePair object, or nullptr before init().
+   */
   QueuePair* get_host_qp() const {
     return host_qp_;
   }
 #if defined(GDA_IONIC)
+  /**
+   * @brief Return the Ionic GPU doorbell page.
+   * @return GPU-visible doorbell page pointer.
+   */
   void* get_db_page() const {
     return gpu_db_page_;
   }
 #endif
+  /**
+   * @brief Return the current remote key used by WQEs.
+   * @return Remote memory-region key.
+   */
   uint32_t get_rkey() const {
     return rkey_;
   }
+  /**
+   * @brief Return the local key for registered data buffers.
+   * @return Local memory-region key.
+   */
   uint32_t get_lkey() const {
     return lkey_;
   }
 
   /**
-   * Register a data buffer as an MR and update the QueuePair's lkey/rkey.
-   * Must be called after init(). Re-syncs QueuePair to GPU.
-   * Returns 0 on success, -1 on failure.
+   * @brief Register a data buffer as an MR and update QueuePair keys.
+   * @param buf Buffer base pointer.
+   * @param size Buffer size in bytes.
+   * @return 0 on success, -1 on failure.
    */
   int register_data_buffer(void* buf, size_t size);
 
   /**
-   * Connect QP to a remote peer (non-loopback).
-   * Transitions QP through RESET -> INIT -> RTR -> RTS using the
-   * remote peer's connection info. Must be called after init() on
-   * a Backend created with loopback=false.
-   * Returns 0 on success, -1 on failure.
+   * @brief Connect the QP to a remote peer in non-loopback mode.
+   * @param remote Remote peer connection information.
+   * @return 0 on success, -1 on failure.
    */
   int connect_to_peer(const DestInfo& remote);
 
   /**
-   * Get local connection info for TCP exchange with remote peer.
-   * Valid after init().
+   * @brief Get local connection info for TCP exchange with a peer.
+   * @return Local LID, QPN, PSN, and GID values valid after init().
    */
   DestInfo get_local_dest_info() const;
 
   /**
-   * Set the remote peer's rkey on the QueuePair.
-   * For RDMA WRITE to a remote node, the WQE needs the remote MR's rkey,
-   * not the local MR's rkey. Call after TCP exchange.
-   * Re-syncs QueuePair to GPU.
+   * @brief Set the remote peer's memory-region key on the QueuePair.
+   * @param remote_rkey Remote MR key received during TCP exchange.
+   * @return 0 on success, -1 on failure.
    */
   int set_remote_rkey(uint32_t remote_rkey);
 
 private:
+  /** @cond INTERNAL */
   BackendConfig config_;
   Provider provider_{Provider::UNKNOWN};
 
@@ -231,6 +284,7 @@ private:
   int ernic_dv_dl_init();
   static void* ernic_dv_dlopen();
 #endif
+  /** @endcond */
 };
 
 } // namespace rdma_ep

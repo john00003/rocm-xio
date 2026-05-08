@@ -291,7 +291,11 @@ __device__ __forceinline__ void poll_until_ge(uint64_t* addr,
  *       boundary after initialization.
  */
 struct SdmaQueueHandle {
-  /** @brief Wrap a byte index into the ring buffer. */
+  /**
+   * @brief Wrap a byte index into the ring buffer.
+   * @param index Absolute byte index in the SDMA ring.
+   * @return Ring-relative byte offset.
+   */
   __device__ __forceinline__ uint64_t WrapIntoRing(uint64_t index) {
     return index % SDMA_QUEUE_SIZE;
   }
@@ -302,6 +306,9 @@ struct SdmaQueueHandle {
    * Uses a cached HW read index for fast-path; falls
    * back to reading the hardware register if the cached
    * value indicates the queue is full.
+   *
+   * @param uptoIndex Absolute byte index the producer wants to reach.
+   * @return true when the ring has enough free space.
    */
   __device__ __forceinline__ bool CanWriteUpto(uint64_t uptoIndex) {
     if ((uptoIndex - cachedHwReadIndex) < SDMA_QUEUE_SIZE) {
@@ -495,8 +502,10 @@ struct SdmaQueueHandle {
  *       by static_assert).
  */
 struct SdmaQueueSingleProducerHandle : SdmaQueueHandle {
-  /** @brief Pad remaining ring space with NOPs and
-   *         submit. */
+  /**
+   * @brief Pad remaining ring space with NOPs and submit.
+   * @param cur_index Current absolute write pointer before wrap padding.
+   */
   __device__ __forceinline__ void PadRingToEnd(uint64_t cur_index) {
     uint64_t new_index = cur_index +
                          (SDMA_QUEUE_SIZE - WrapIntoRing(cur_index));
@@ -538,6 +547,8 @@ struct SdmaQueueSingleProducerHandle : SdmaQueueHandle {
   /**
    * @brief Submit (single-producer, no committedWptr
    *        serialization).
+   * @param base Base index returned by ReserveQueueSpace().
+   * @param pendingWptr End index after packet placement.
    */
   __device__ __forceinline__ void submitPacket(uint64_t base,
                                                uint64_t pendingWptr) {
@@ -964,6 +975,8 @@ __host__ unsigned getIterations(void* endpointConfig);
 
 /**
  * @brief Run the SDMA endpoint workload.
+ * @param config Base endpoint configuration containing SdmaEpConfig.
+ * @return hipSuccess on success, or a HIP error code on failure.
  */
 __host__ hipError_t run(XioEndpointConfig* config);
 

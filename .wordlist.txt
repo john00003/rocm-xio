@@ -1012,6 +1012,7 @@ waitCounter
 waitSignal
 XioEndpoint
 XioEndpointConfig
+XioSubstepStats
 xioBufferInfo
 xioQueueSetup
 XioTimingStats

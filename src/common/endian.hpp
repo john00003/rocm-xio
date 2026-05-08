@@ -16,6 +16,12 @@
 namespace xio {
 namespace rdma_ep {
 
+/**
+ * @brief Reverse byte order for an integral value.
+ * @tparam T Integral value type.
+ * @param val Value to byte-swap.
+ * @return Value with bytes in reverse order.
+ */
 template <typename T, std::enable_if_t<std::is_integral_v<T>, bool> = true>
 constexpr inline __host__ __device__ T byteswap(T val) {
   if constexpr (sizeof(T) == 1) {
@@ -33,12 +39,21 @@ constexpr inline __host__ __device__ T byteswap(T val) {
 
 namespace endian {
 
+/** @brief Endian order used by conversion helpers. */
 enum class Order {
-  Big = __ORDER_BIG_ENDIAN__,
-  Little = __ORDER_LITTLE_ENDIAN__,
-  Native = __BYTE_ORDER__
+  Big = __ORDER_BIG_ENDIAN__,       /**< Big-endian byte order. */
+  Little = __ORDER_LITTLE_ENDIAN__, /**< Little-endian byte order. */
+  Native = __BYTE_ORDER__           /**< Compile-target native order. */
 };
 
+/**
+ * @brief Convert an integral value between endian orders.
+ * @tparam To Destination byte order.
+ * @tparam From Source byte order.
+ * @tparam T Integral value type.
+ * @param val Value to convert.
+ * @return Converted value, or @p val when orders match.
+ */
 template <Order To, Order From, typename T,
           std::enable_if_t<std::is_integral_v<T>, bool> = true>
 __host__ __device__ constexpr inline T convert(T val) {
@@ -49,31 +64,69 @@ __host__ __device__ constexpr inline T convert(T val) {
   }
 }
 
+/**
+ * @brief Convert from a specified endian order to native order.
+ * @tparam From Source byte order.
+ * @tparam T Integral value type.
+ * @param val Value to convert.
+ * @return Native-order value.
+ */
 template <Order From, typename T>
 __host__ __device__ constexpr inline T to_native(T val) {
   return convert<Order::Native, From, T>(val);
 }
 
+/**
+ * @brief Convert from native order to a specified endian order.
+ * @tparam To Destination byte order.
+ * @tparam T Integral value type.
+ * @param val Value to convert.
+ * @return Value in destination order.
+ */
 template <Order To, typename T>
 __host__ __device__ constexpr inline T from_native(T val) {
   return convert<To, Order::Native, T>(val);
 }
 
+/**
+ * @brief Convert a native-order value to big-endian order.
+ * @tparam T Integral value type.
+ * @param val Native-order value.
+ * @return Big-endian value.
+ */
 template <typename T>
 __host__ __device__ constexpr inline T to_be(T val) {
   return convert<Order::Big, Order::Native, T>(val);
 }
 
+/**
+ * @brief Convert a big-endian value to native order.
+ * @tparam T Integral value type.
+ * @param val Big-endian value.
+ * @return Native-order value.
+ */
 template <typename T>
 __host__ __device__ constexpr inline T from_be(T val) {
   return convert<Order::Native, Order::Big, T>(val);
 }
 
+/**
+ * @brief Convert a native-order value to little-endian order.
+ * @tparam T Integral value type.
+ * @param val Native-order value.
+ * @return Little-endian value.
+ */
 template <typename T>
 __host__ __device__ constexpr inline T to_le(T val) {
   return convert<Order::Little, Order::Native, T>(val);
 }
 
+/**
+ * @brief Convert a little-endian value to native order.
+ * @tparam T Integral value type.
+ * @param val Little-endian value.
+ * @return Native-order value.
+ */
 template <typename T>
 __host__ __device__ constexpr inline T from_le(T val) {
   return convert<Order::Native, Order::Little, T>(val);

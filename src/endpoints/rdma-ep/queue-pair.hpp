@@ -58,38 +58,126 @@ class Ops;
 
 class Backend;
 
+/**
+ * @brief GPU-visible queue-pair state and device API for RDMA operations.
+ *
+ * Host code initializes a QueuePair through Backend, then GPU kernels use the
+ * device methods to post non-blocking RMA and atomic operations.
+ */
 class QueuePair {
 public:
+  /** @cond INTERNAL */
   friend Backend;
+  /** @endcond */
   friend class bnxt::Ops;
   friend class mlx5::Ops;
   friend class ionic::Ops;
   friend class ernic::Ops;
 
+  /**
+   * @brief Construct host-side QueuePair state for a provider.
+   * @param pd Verbs protection domain used for queue allocations.
+   * @param provider Provider-specific backend for WQE/CQE formatting.
+   */
   explicit QueuePair(struct ibv_pd* pd, Provider provider);
+
+  /** @brief Release host-side helper allocations owned by the QueuePair. */
   ~QueuePair();
 
-  // --- Public device API ---
+  /**
+   * @brief Post a non-blocking RDMA WRITE.
+   * @param dest Remote destination address.
+   * @param source Local source address.
+   * @param nelems Number of bytes to transfer.
+   */
   __device__ void put_nbi(void* dest, const void* source, size_t nelems);
+
+  /**
+   * @brief Post a non-blocking RDMA READ.
+   * @param dest Local destination address.
+   * @param source Remote source address.
+   * @param nelems Number of bytes to transfer.
+   */
   __device__ void get_nbi(void* dest, const void* source, size_t nelems);
+
+  /** @brief Wait for all outstanding operations on the QP to complete. */
   __device__ void quiet();
 
+  /**
+   * @brief Post a fetching atomic operation.
+   * @param dest Remote atomic target address.
+   * @param value Add or swap operand.
+   * @param cond Compare operand for compare-and-swap providers.
+   * @return Value fetched from the remote target.
+   */
   __device__ int64_t atomic_fetch(void* dest, int64_t value, int64_t cond);
+
+  /**
+   * @brief Post a non-fetching atomic operation.
+   * @param dest Remote atomic target address.
+   * @param value Add or swap operand.
+   * @param cond Compare operand for compare-and-swap providers.
+   */
   __device__ void atomic_nofetch(void* dest, int64_t value, int64_t cond);
+
+  /**
+   * @brief Post a compare-and-swap atomic operation.
+   * @param dest Remote atomic target address.
+   * @param data Replacement value.
+   * @param cmp Expected comparison value.
+   * @return Value fetched from the remote target.
+   */
   __device__ int64_t atomic_cas(void* dest, int64_t data, int64_t cmp);
 
+  /**
+   * @brief Post a non-blocking RDMA WRITE with immediate data.
+   * @param dest Remote destination address.
+   * @param source Local source address.
+   * @param nelems Number of bytes to transfer.
+   * @param imm_data Immediate data value carried by the completion.
+   */
   __device__ void put_nbi_imm(void* dest, const void* source, size_t nelems,
                               uint32_t imm_data);
+
+  /**
+   * @brief Post one RDMA WRITE from a single lane.
+   * @param dest Remote destination address.
+   * @param source Local source address.
+   * @param nelems Number of bytes to transfer.
+   * @param ring_db If true, ring the provider doorbell immediately.
+   */
   __device__ void put_nbi_single(void* dest, const void* source, size_t nelems,
                                  bool ring_db = true);
+
+  /**
+   * @brief Post one RDMA WRITE with immediate data from a single lane.
+   * @param dest Remote destination address.
+   * @param source Local source address.
+   * @param nelems Number of bytes to transfer.
+   * @param imm_data Immediate data value carried by the completion.
+   * @param ring_db If true, ring the provider doorbell immediately.
+   */
   __device__ void put_nbi_imm_single(void* dest, const void* source,
                                      size_t nelems, uint32_t imm_data,
                                      bool ring_db = true);
+
+  /**
+   * @brief Post one RDMA READ from a single lane.
+   * @param dest Local destination address.
+   * @param source Remote source address.
+   * @param nelems Number of bytes to transfer.
+   * @param ring_db If true, ring the provider doorbell immediately.
+   */
   __device__ void get_nbi_single(void* dest, const void* source, size_t nelems,
                                  bool ring_db = true);
+
+  /** @brief Wait for operations posted by the current single-lane path. */
   __device__ void quiet_single();
+
+  /** @brief Ring the provider doorbell for single-lane postings. */
   __device__ void ring_doorbell_single();
 
+  /** @cond INTERNAL */
   // --- Common accessor for vendor code ---
   __device__ uint64_t get_same_qp_lane_mask();
 
@@ -163,8 +251,10 @@ public:
   ernic_device_cq ernic_cq_{};
   ernic_device_sq ernic_sq_{};
 #endif
+  /** @endcond */
 };
 
+/** @cond INTERNAL */
 // ============================================================================
 // Vendor namespace declarations
 // Each vendor provides the same function names for the common operations.
@@ -320,6 +410,7 @@ public:
 };
 } // namespace ernic
 #endif
+/** @endcond */
 
 } // namespace rdma_ep
 } // namespace xio

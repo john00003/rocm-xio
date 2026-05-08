@@ -24,8 +24,10 @@ namespace xio::nvme_ep {
 /**
  * Polling limits for completion queue operations
  */
-#define NVME_EP_MAX_POLLS 10000000U            // Maximum polls before timeout
-#define NVME_EP_MAX_POLLS_BEFORE_BACKOFF 1000U // Polls before backoff reset
+/** @brief Maximum completion-queue polls before an NVMe timeout. */
+#define NVME_EP_MAX_POLLS 10000000U
+/** @brief Completion polls before issuing a GPU sleep backoff. */
+#define NVME_EP_MAX_POLLS_BEFORE_BACKOFF 1000U
 
 /**
  * Doorbell register constants
@@ -59,19 +61,19 @@ typedef struct nvme_cqe cqeType;
  * device code.
  */
 struct nvmeIoParams {
-  uint32_t lbaSize;       // Logical block size in bytes
-  uint64_t baseLba;       // Starting LBA for I/O operations
-  uint64_t lbaRangeLbas;  // LBA range limit (0 = no limit)
-  bool useRandomAccess;   // true for random access, false for sequential
-  int readIo;             // Number of read operations
-  int writeIo;            // Number of write operations
-  uint32_t lfsrSeed;      // Seed for LFSR test pattern (0 = derive from LBA)
-  uint16_t queueSize;     // Queue size in entries
-  uint32_t nsid;          // Namespace ID (must be > 0)
-  uint32_t lbasPerIo;     // Number of LBAs per I/O operation (default: 1)
-  bool infiniteMode;      // Infinite mode: run forever
-  uint32_t batchSize;     // SQEs per doorbell (1=sequential, 0=all)
-  uint32_t wavefrontSize; // Hardware wavefront size (threads per wave)
+  uint32_t lbaSize;       /**< Logical block size in bytes. */
+  uint64_t baseLba;       /**< Starting LBA for I/O operations. */
+  uint64_t lbaRangeLbas;  /**< LBA range limit; 0 means no limit. */
+  bool useRandomAccess;   /**< true for random, false for sequential. */
+  int readIo;             /**< Number of read operations. */
+  int writeIo;            /**< Number of write operations. */
+  uint32_t lfsrSeed;      /**< LFSR seed; 0 derives seed from LBA. */
+  uint16_t queueSize;     /**< Queue depth in entries. */
+  uint32_t nsid;          /**< NVMe namespace ID; must be nonzero. */
+  uint32_t lbasPerIo;     /**< Number of LBAs per I/O operation. */
+  bool infiniteMode;      /**< Run until stopRequested is set. */
+  uint32_t batchSize;     /**< SQEs per doorbell; 1=serial, 0=all. */
+  uint32_t wavefrontSize; /**< Hardware wavefront size in threads. */
 };
 
 /**
@@ -81,11 +83,11 @@ struct nvmeIoParams {
  * and direct BAR0 access. At least one mode must be configured.
  */
 struct nvmeDoorbellParams {
-  uint32_t doorbellOffset; // Offset within BAR0 for doorbell register
-  uint16_t nvmeTargetBdf;  // NVMe target device BDF (0xBBDD format)
-  void* shadowBufferVirt;  // Shadow buffer pointer (MMIO bridge mode)
-  void* nvmeBar0Gpu;       // GPU-accessible BAR0 pointer (direct mode)
-  bool usePciMmioBridge;   // Use PCI MMIO bridge mode (vs direct BAR0)
+  uint32_t doorbellOffset; /**< Doorbell register offset within BAR0. */
+  uint16_t nvmeTargetBdf;  /**< NVMe target device in 0xBBDD form. */
+  void* shadowBufferVirt;  /**< PCI MMIO bridge shadow buffer pointer. */
+  void* nvmeBar0Gpu;       /**< GPU-accessible BAR0 pointer. */
+  bool usePciMmioBridge;   /**< Use bridge mode instead of direct BAR0. */
 };
 
 /**
@@ -95,18 +97,18 @@ struct nvmeDoorbellParams {
  * Buffers must be GPU-accessible. DMA addresses are used for PRP entries.
  */
 struct nvmeBufferParams {
-  uint8_t* readBuffer;     // Read buffer pointer (can be nullptr)
-  uint8_t* writeBuffer;    // Write buffer pointer (can be nullptr)
-  size_t bufferSize;       // Size of buffers in bytes
-  uint64_t readBufferDma;  // DMA address for read buffer
-  uint64_t writeBufferDma; // DMA address for write buffer
-  uint64_t* readPagePhysAddrs;
-  uint64_t* writePagePhysAddrs;
-  uint32_t readNumPages;
-  uint32_t writeNumPages;
-  uint64_t* prpListPool;
-  uint64_t prpListPoolDma;
-  uint32_t prpEntriesPerCmd;
+  uint8_t* readBuffer;          /**< Read destination buffer, or nullptr. */
+  uint8_t* writeBuffer;         /**< Write source buffer, or nullptr. */
+  size_t bufferSize;            /**< Size of each data buffer in bytes. */
+  uint64_t readBufferDma;       /**< DMA address for readBuffer. */
+  uint64_t writeBufferDma;      /**< DMA address for writeBuffer. */
+  uint64_t* readPagePhysAddrs;  /**< Physical address per read page. */
+  uint64_t* writePagePhysAddrs; /**< Physical address per write page. */
+  uint32_t readNumPages;        /**< Entries in readPagePhysAddrs. */
+  uint32_t writeNumPages;       /**< Entries in writePagePhysAddrs. */
+  uint64_t* prpListPool;        /**< PRP list backing storage for commands. */
+  uint64_t prpListPoolDma;      /**< DMA address of prpListPool. */
+  uint32_t prpEntriesPerCmd;    /**< PRP entries reserved per command. */
 };
 
 /**
@@ -635,6 +637,10 @@ __host__ __device__ static inline void calculatePrps(
  * Backward-compatible calculatePrps for transfers that
  * fit within at most 2 NVMe pages (up to 8KB at 4KB
  * page size). Does not support PRP lists.
+ *
+ * @param bufferAddr DMA address of the transfer buffer.
+ * @param bufferSize Transfer size in bytes.
+ * @param sqe SQE to update with PRP1 and PRP2 values.
  */
 __host__ __device__ static inline void calculatePrps(uint64_t bufferAddr,
                                                      uint32_t bufferSize,
@@ -693,65 +699,60 @@ __global__ void gpuKernel(XioEndpointConfig config, nvmeIoParams ioParams,
  * used in device code.
  */
 struct nvmeEpConfig {
-  // Device and queue configuration (host-side only)
-  std::string controller; // NVMe controller device path
-  uint16_t queueId;       // Highest queue ID (0=auto-detect, 1+=IO)
-  uint16_t queueLength;   // Queue length in entries (power of 2)
-  uint16_t numQueues;     // Number of queues to use (default 1)
-  bool queuesCreated;     // Flag: queues have been created
-  uint32_t wavefrontSize; // Hardware wavefront size
+  std::string controller; /**< NVMe controller or namespace device path. */
+  uint16_t queueId;       /**< Highest queue ID; 0 means auto-detect. */
+  uint16_t queueLength;   /**< Queue depth in entries; must be power of 2. */
+  uint16_t numQueues;     /**< Number of independent I/O queues to use. */
+  bool queuesCreated;     /**< true after host-side queues are created. */
+  uint32_t wavefrontSize; /**< Hardware wavefront size in threads. */
 
-  // Per-queue state (populated by run() for multi-queue)
-  struct nvme_queue_info queueInfo;
-  std::vector<uint16_t> queueIds;
-  std::vector<struct nvme_queue_info> queueInfos;
+  struct nvme_queue_info queueInfo; /**< Single-queue state for legacy paths. */
+  std::vector<uint16_t> queueIds;   /**< Queue IDs allocated for multi-queue. */
+  std::vector<struct nvme_queue_info> queueInfos; /**< Per-queue host state. */
 
-  // Physical addresses (host-side only)
-  uint64_t doorbellAddr; // Physical address of doorbell register
-  uint64_t sqBaseAddr;   // Physical base address of submission queue
-  uint64_t cqBaseAddr;   // Physical base address of completion queue
-  size_t sqSize;         // Size of submission queue in bytes
-  size_t cqSize;         // Size of completion queue in bytes
+  uint64_t doorbellAddr; /**< Physical address of the SQ doorbell register. */
+  uint64_t sqBaseAddr;   /**< Physical base address of submission queue. */
+  uint64_t cqBaseAddr;   /**< Physical base address of completion queue. */
+  size_t sqSize;         /**< Submission queue allocation size in bytes. */
+  size_t cqSize;         /**< Completion queue allocation size in bytes. */
 
-  // I/O operation parameters (mirrors nvmeIoParams POD struct)
+  /** @brief Host-side I/O options mirrored into nvmeIoParams. */
   struct {
-    std::string accessPattern; // "sequential" or "random" (default: "random")
-    unsigned lbaSize;      // LBA size in bytes (default: 512, auto-detected)
-    uint64_t baseLba;      // Starting LBA for I/O operations (default: 0)
-    uint64_t lbaRangeLbas; // LBA range limit (0 = no limit, default: 0)
-    uint32_t lfsrSeed;     // Seed for LFSR pattern (0 = derive from LBA)
-    int readIo;            // Number of read I/O operations
-    int writeIo;           // Number of write I/O operations
-    uint32_t nsid;         // Namespace ID (default: 1, must be > 0)
-    uint32_t lbasPerIo;    // Number of LBAs per I/O (default: 1)
-    bool infiniteMode;     // Infinite mode: run forever
-    uint32_t batchSize;    // SQEs per doorbell (1=seq, 0=all)
-  } ioParams;
+    std::string accessPattern; /**< "sequential" or "random". */
+    unsigned lbaSize;          /**< LBA size in bytes; auto-detected. */
+    uint64_t baseLba;          /**< Starting LBA for I/O operations. */
+    uint64_t lbaRangeLbas;     /**< LBA range limit; 0 means no limit. */
+    uint32_t lfsrSeed;         /**< LFSR seed; 0 derives seed from LBA. */
+    int readIo;                /**< Number of read I/O operations. */
+    int writeIo;               /**< Number of write I/O operations. */
+    uint32_t nsid;             /**< NVMe namespace ID; must be nonzero. */
+    uint32_t lbasPerIo;        /**< Number of LBAs per I/O. */
+    bool infiniteMode;         /**< Run until stopRequested is set. */
+    uint32_t batchSize;        /**< SQEs per doorbell; 1=serial, 0=all. */
+  } ioParams;                  /**< I/O operation parameters. */
 
-  // Verification
-  bool verify = false; // Verify LFSR data pattern after read-back
+  bool verify = false; /**< Verify LFSR data pattern after read-back. */
 
-  // Data buffer configuration (mirrors nvmeBufferParams POD struct)
+  /** @brief Host-side data buffer options mirrored into nvmeBufferParams. */
   struct {
-    size_t bufferSize; // Size of data buffers in bytes
-  } bufferParams;
+    size_t bufferSize; /**< Size of data buffers in bytes. */
+  } bufferParams;      /**< Data buffer configuration. */
 
-  // Doorbell configuration (mirrors nvmeDoorbellParams POD struct)
+  /** @brief Host-side doorbell options mirrored into nvmeDoorbellParams. */
   struct {
-    bool usePciMmioBridge;  // Use PCI MMIO bridge for doorbell routing
-    uint16_t mmioBridgeBdf; // PCI MMIO bridge BDF (0xBBDD format, e.g., 0x0400
-                            // for 00:04.0)
-    uint16_t nvmeTargetBdf; // NVMe target device BDF (0xBBDD format, e.g.,
-                            // 0x0600 for 00:06.0)
-    void* shadowBufferVirt; // Virtual address of PCI MMIO bridge shadow buffer
-                            // (mapped from GPA)
-    void* nvmeBar0Gpu;      // GPU-accessible pointer to NVMe BAR0 (for direct
-                            // doorbell)
-  } doorbellParams;
+    bool usePciMmioBridge;  /**< Route doorbells through PCI MMIO bridge. */
+    uint16_t mmioBridgeBdf; /**< Bridge BDF in 0xBBDD form. */
+    uint16_t nvmeTargetBdf; /**< NVMe target BDF in 0xBBDD form. */
+    void* shadowBufferVirt; /**< Mapped MMIO bridge shadow buffer. */
+    void* nvmeBar0Gpu;      /**< GPU-accessible pointer to NVMe BAR0. */
+  } doorbellParams;         /**< Doorbell routing configuration. */
 
-  // Default constructor
-  // Note: queueId defaults to 0 (invalid) - will be auto-detected in
-  // validateConfig
+  /**
+   * @brief Construct NVMe endpoint config with CLI defaults.
+   *
+   * queueId defaults to 0 so validateConfig() can auto-detect the highest
+   * usable I/O queue ID from the controller.
+   */
   nvmeEpConfig()
     : controller(""), queueId(0), queueLength(64), numQueues(1),
       queuesCreated(false), wavefrontSize(0), queueInfo{}, doorbellAddr(0),

@@ -31,7 +31,9 @@
 
 #include <hip/hip_runtime.h>
 
+/** @brief rdma-ep does not expose a fixed public SQE layout. */
 #define RDMA_EP_SQE_SIZE 0
+/** @brief rdma-ep does not expose a fixed public CQE layout. */
 #define RDMA_EP_CQE_SIZE 0
 
 namespace xio {
@@ -44,23 +46,25 @@ namespace rdma_ep {
  * @brief Queue buffer placement for RDMA send/completion queues.
  */
 enum class QueueMemMode : uint8_t {
-  HOST_COHERENT = 0,
-  DEVICE_VRAM = 1,
+  HOST_COHERENT = 0, /**< Allocate queues in coherent host memory. */
+  DEVICE_VRAM = 1,   /**< Allocate queues in GPU VRAM. */
 };
 
 /**
  * @brief RDMA provider backends supported by rdma-ep.
  */
 enum class Provider : uint8_t {
-  BNXT = 0,
-  MLX5 = 1,
-  IONIC = 2,
-  ROCM_ERNIC = 3,
-  UNKNOWN = 0xFF,
+  BNXT = 0,       /**< Broadcom bnxt_re provider. */
+  MLX5 = 1,       /**< Mellanox mlx5 provider. */
+  IONIC = 2,      /**< Pensando Ionic provider. */
+  ROCM_ERNIC = 3, /**< AMD ROCm ERNIC provider. */
+  UNKNOWN = 0xFF, /**< Unknown or unsupported provider. */
 };
 
 /**
  * @brief Return the canonical provider name.
+ * @param p Provider enum value.
+ * @return Canonical provider string, or "unknown" for unsupported values.
  */
 __host__ inline const char* provider_name(Provider p) {
   switch (p) {
@@ -79,6 +83,8 @@ __host__ inline const char* provider_name(Provider p) {
 
 /**
  * @brief Convert a provider string to a Provider value.
+ * @param s Provider name or accepted alias; may be nullptr.
+ * @return Matching Provider, or Provider::UNKNOWN when not recognized.
  */
 __host__ inline Provider provider_from_string(const char* s) {
   if (!s)
@@ -137,16 +143,22 @@ struct RdmaEpConfig {
 
 /**
  * @brief Validate RDMA endpoint configuration.
+ * @param config RDMA endpoint configuration to validate.
+ * @return Empty string when valid, otherwise a diagnostic message.
  */
 __host__ std::string validateConfig(RdmaEpConfig* config);
 
 /**
  * @brief Resolve iteration count from opaque endpoint config.
+ * @param endpointConfig Pointer to an RdmaEpConfig instance.
+ * @return Number of RDMA operations to run; 0 means infinite mode.
  */
 __host__ unsigned getIterations(void* endpointConfig);
 
 /**
  * @brief Run the RDMA endpoint (loopback or 2-node mode).
+ * @param config Base endpoint configuration containing RdmaEpConfig.
+ * @return hipSuccess on success, or a HIP error code on failure.
  */
 __host__ hipError_t run(XioEndpointConfig* config);
 
