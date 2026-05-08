@@ -28,6 +28,10 @@ Base Classes
    :members:
    :undoc-members:
 
+.. doxygenstruct:: xio::XioSubstepStats
+   :members:
+   :undoc-members:
+
 Endpoint Registry
 ^^^^^^^^^^^^^^^^^
 

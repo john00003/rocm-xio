@@ -21,10 +21,30 @@ EXTRACT_ALL            = YES
 EXTRACT_PRIVATE        = NO
 EXTRACT_STATIC         = YES
 
-# Exclude generated headers and external vendored headers
+# Exclude generated headers, imported ABI mirrors, and low-level protocol
+# layouts that are implementation inputs rather than ROCm XIO API.
 EXCLUDE_PATTERNS       = */external/* \
                          *-generated.h \
-                         *-gen.h
+                         *-gen.h \
+                         */src/common/ibv-core.hpp \
+                         */src/endpoints/rdma-ep/bnxt/bnxt-provider.hpp \
+                         */src/endpoints/rdma-ep/bnxt/bnxt-rdma.h \
+                         */src/endpoints/rdma-ep/bnxt/bnxt-re-dv.h \
+                         */src/endpoints/rdma-ep/bnxt/bnxt-re-hsi.h \
+                         */src/endpoints/rdma-ep/ionic/ionic-provider.hpp \
+                         */src/endpoints/rdma-ep/ionic/ionic-dv.h \
+                         */src/endpoints/rdma-ep/ionic/ionic-fw.h \
+                         */src/endpoints/rdma-ep/ionic/ionic-rdma.h \
+                         */src/endpoints/rdma-ep/mlx/mlx5-rdma.h \
+                         */src/endpoints/rdma-ep/mlx5/mlx5-provider.hpp \
+                         */src/endpoints/rdma-ep/rocm-ernic/ernic-provider.hpp \
+                         */src/endpoints/rdma-ep/rocm-ernic/rocm-ernic-dv.h \
+                         */src/endpoints/sdma-ep/anvil.hpp \
+                         */src/endpoints/sdma-ep/anvil_device.hpp \
+                         */src/endpoints/sdma-ep/sdma-packet.h \
+                         */src/endpoints/sdma-ep/sdma_opcodes.h \
+                         */src/endpoints/sdma-ep/sdma_pkt_struct.h \
+                         */src/endpoints/sdma-ep/sdma_pkt_struct_mi4.h
 
 # XML output for Breathe (via rocm_docs.doxygen)
 GENERATE_HTML          = NO

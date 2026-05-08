@@ -20,13 +20,14 @@
 
 namespace xio {
 
+/** @brief Parameters for deterministic LFSR data generation or checking. */
 struct DataPatternParams {
-  uint8_t* buffer;
-  size_t size;
-  uint64_t offset;
-  uint32_t blockSize;
-  uint32_t seed;
-  size_t* errorOffset;
+  uint8_t* buffer;     /**< Buffer to fill or verify. */
+  size_t size;         /**< Number of bytes to process. */
+  uint64_t offset;     /**< Logical byte offset of the transfer. */
+  uint32_t blockSize;  /**< Block size used to derive the pattern seed. */
+  uint32_t seed;       /**< Caller-supplied seed mixed into the pattern. */
+  size_t* errorOffset; /**< Optional output byte offset for first mismatch. */
 };
 
 /**

@@ -22,6 +22,11 @@
 #include <atomic>
 #endif
 
+/**
+ * @brief Atomically add one duration sample to aggregate timing stats.
+ * @param stats Timing stats to update; nullptr is ignored.
+ * @param duration Duration sample in the caller's time unit.
+ */
 __host__ __device__ inline void updateTimingStats(
   xio::XioTimingStats* stats, unsigned long long int duration) {
   if (stats == nullptr)

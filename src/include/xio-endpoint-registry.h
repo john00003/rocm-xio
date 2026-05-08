@@ -15,29 +15,52 @@
 #include "xio-endpoint-registry-gen.h"
 #include "xio-export.h"
 
-// Endpoint information structure
+/**
+ * @brief Static metadata for one registered endpoint.
+ */
 struct EndpointInfo {
-  std::string name;
-  std::string description;
-  EndpointType type;
+  std::string name;        /**< CLI and factory name for the endpoint. */
+  std::string description; /**< Human-readable endpoint summary. */
+  EndpointType type;       /**< Generated endpoint type identifier. */
 };
 
-// Get the registry of all available endpoints
+/**
+ * @brief Return the registry of endpoints compiled into the binary.
+ * @return Immutable vector of endpoint metadata entries.
+ */
 XIO_API const std::vector<EndpointInfo>& getEndpointRegistry();
 
-// Convert string name to endpoint type
+/**
+ * @brief Convert an endpoint name to its generated type identifier.
+ * @param name Endpoint name, matched case-insensitively.
+ * @return Matching EndpointType, or EndpointType::UNKNOWN when absent.
+ */
 XIO_API EndpointType getEndpointType(const std::string& name);
 
-// Get endpoint name from type
+/**
+ * @brief Return the canonical endpoint name for a generated type.
+ * @param type Endpoint type identifier.
+ * @return Endpoint name string, or nullptr when @p type is unknown.
+ */
 XIO_API const char* getEndpointName(EndpointType type);
 
-// List all available endpoints
+/**
+ * @brief Print all registered endpoint names and descriptions to stdout.
+ */
 XIO_API void listAvailableEndpoints();
 
-// Validate endpoint name
+/**
+ * @brief Check whether an endpoint name is registered.
+ * @param name Endpoint name to validate, matched case-insensitively.
+ * @return true when @p name resolves to a registered endpoint.
+ */
 XIO_API bool isValidEndpoint(const std::string& name);
 
-// Get EndpointInfo from EndpointType
+/**
+ * @brief Return metadata for an endpoint type.
+ * @param type Endpoint type identifier.
+ * @return Matching EndpointInfo, or an UNKNOWN entry when unsupported.
+ */
 XIO_API EndpointInfo getEndpointInfo(EndpointType type);
 
 #endif // XIO_ENDPOINT_REGISTRY_H
