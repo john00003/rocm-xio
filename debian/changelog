@@ -1,5 +1,5 @@
-rocm-xio (0.1.0) noble; urgency=low
+rocm-xio (0.1.0~git2d9d85a) noble; urgency=low
 
-  * Initial Debian packaging
+  * ci: rolling packages use rocm-xio-latest and shared release notes
 
- -- AMD ROCm Build <rocm-xio@amd.com>  Wed, 02 Apr 2026 00:00:00 +0000
+ -- AMD ROCm Build <rocm-xio@amd.com>  Fri, 08 May 2026 14:25:12 -0400
