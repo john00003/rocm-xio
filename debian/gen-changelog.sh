@@ -59,7 +59,8 @@ DATE_ISO=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 # Determine git log range for changelog bullets (git only; same gate as
 # FULL_SHA — avoids invoking git under set -e when unavailable).
 RANGE=""
-RANGE_LABEL=""
+# User-facing line for GitHub release notes (omit when empty).
+SINCE_DISPLAY=""
 cd "${PROJECT_DIR}"
 
 if [ -n "${FULL_SHA}" ]; then
@@ -67,17 +68,17 @@ if [ -n "${FULL_SHA}" ]; then
     if git -C "${PROJECT_DIR}" rev-parse -q --verify \
       "refs/tags/${ROLLING_TAG}" >/dev/null 2>&1; then
       RANGE="${ROLLING_TAG}..HEAD"
-      RANGE_LABEL="since tag \`${ROLLING_TAG}\`"
+      SINCE_DISPLAY="after \`${ROLLING_TAG}\`"
     else
       PREV_V=$(git -C "${PROJECT_DIR}" describe --tags --abbrev=0 \
         --match='v[0-9]*.[0-9]*.[0-9]*' HEAD 2>/dev/null \
         || true)
       if [ -n "${PREV_V}" ]; then
         RANGE="${PREV_V}..HEAD"
-        RANGE_LABEL="since latest semver tag \`${PREV_V}\` (rolling tag absent)"
+        SINCE_DISPLAY="after semver tag \`${PREV_V}\`"
       else
         RANGE="HEAD"
-        RANGE_LABEL="single revision (no prior tag)"
+        SINCE_DISPLAY=""
       fi
     fi
   else
@@ -86,15 +87,15 @@ if [ -n "${FULL_SHA}" ]; then
       || true)
     if [ -n "${PREV_V}" ]; then
       RANGE="${PREV_V}..HEAD"
-      RANGE_LABEL="since \`${PREV_V}\`"
+      SINCE_DISPLAY="after \`${PREV_V}\`"
     else
       RANGE="HEAD"
-      RANGE_LABEL="initial or first tagged release"
+      SINCE_DISPLAY=""
     fi
   fi
 else
   RANGE="HEAD"
-  RANGE_LABEL="git unavailable (no revision range)"
+  SINCE_DISPLAY=""
 fi
 
 # Collect commit subjects (no merges), newest first, cap for Debian noise.
@@ -139,16 +140,14 @@ fi
 } > "${SCRIPT_DIR}/changelog"
 
 # Markdown release notes (GitHub Release body).
-HEAD_LINE="ROCm XIO ${DEB_VERSION}"
 if [ "${GEN_CHANGELOG_ROLLING:-}" = "1" ]; then
-  TITLE="# Rolling package build (\`${ROLLING_TAG}\`)"
+  TITLE="# Pre-release packages — tag \`${ROLLING_TAG}\`"
 else
   TITLE="# Release ${VERSION}"
 fi
 
 {
   printf '%s\n\n' "${TITLE}"
-  printf '%s\n\n' "${HEAD_LINE}"
   printf '%s\n' "**Package version:** \`${DEB_VERSION}\`  "
   if [ -n "${FULL_SHA}" ]; then
     printf '%s\n' "**Commit:** \`${FULL_SHA}\`  "
@@ -156,10 +155,14 @@ fi
     printf '%s\n' "**Commit:** (git unavailable)  "
   fi
   printf '%s\n' "**Built:** ${DATE_ISO}  "
-  printf '%s\n\n' "**Change range:** ${RANGE_LABEL}"
+  if [ -n "${SINCE_DISPLAY}" ]; then
+    printf '%s\n' "**Since:** ${SINCE_DISPLAY}  "
+  fi
+  printf '\n'
   if [ "${GEN_CHANGELOG_ROLLING:-}" = "1" ]; then
-    printf '%s\n\n' \
-"This pre-release is updated on each push to \`main\`. It may be less stable than a semver-tagged release; for production, prefer a tagged \`vX.Y.Z\` release."
+    printf '%s\n%s\n\n' \
+"This pre-release is updated on each push to \`main\`. It may be less stable" \
+"than a semver-tagged release; for production, prefer a tagged \`vX.Y.Z\` release."
   fi
   printf '%s\n\n' "## Changes"
   if [ ! -s "${TMP_SUBJ}" ]; then

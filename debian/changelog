@@ -1,5 +1,10 @@
-rocm-xio (0.1.0~git2d9d85a) noble; urgency=low
+rocm-xio (0.1.0~gitb2abced) noble; urgency=low
 
-  * ci: rolling packages use rocm-xio-latest and shared release notes
+  * ci: align rolling GitHub release title with generated release notes
+  * ci: prefix rolling release assets as rocm-xio-latest-* and rename
+    Actions artifact to rocm-xio-debs-rolling-<sha>
+  * debian: simplify GitHub release-note body (Since line, drop duplicate
+    headline; wrap rolling disclaimer)
+  * docs: document rocm-xio-latest as sole rolling channel in CONTRIBUTING
 
- -- AMD ROCm Build <rocm-xio@amd.com>  Fri, 08 May 2026 14:25:12 -0400
+ -- AMD ROCm Build <rocm-xio@amd.com>  Mon, 11 May 2026 13:33:21 -0400

@@ -36,6 +36,15 @@ Release branches are created retroactively and only when it is necessary to
 bugfix supported versions of the library. Bugfixing should take place on
 `main` and be cherry-picked to any branches that are being maintained.
 
+### Pre-release packages from `main`
+
+Each push to `main` rebuilds the Debian packages and updates the
+GitHub pre-release attached to tag `rocm-xio-latest`. That is the only
+rolling package channel maintained by this repository's CI. An older GitHub
+release or tag named `latest` is not produced by the current workflows; if
+it still appears on the releases page, it is legacy and may be removed to
+avoid confusion.
+
 ## Pull Requests
 
 We welcome pull requests from outside contributors. Pull requests must pass

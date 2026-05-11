@@ -85,12 +85,17 @@ jobs:
     - name: Stage built packages
       run: |
         mkdir -p built-debs
-        cp ../*.deb ../*.buildinfo ../*.changes built-debs/
+        for f in ../*.deb ../*.buildinfo ../*.changes; do
+          if [ -f "$f" ]; then
+            base="$(basename "$f")"
+            cp "$f" "built-debs/rocm-xio-latest-${base}"
+          fi
+        done
 
     - name: Upload .deb artifacts
       uses: actions/upload-artifact@v4
       with:
-        name: rocm-xio-debs-${{ github.sha }}
+        name: rocm-xio-debs-rolling-${{ github.sha }}
         path: built-debs/
 
     - name: Update rolling package pre-release
@@ -98,7 +103,7 @@ jobs:
       uses: softprops/action-gh-release@v2
       with:
         tag_name: rocm-xio-latest
-        name: Latest package build (main)
+        name: Pre-release packages — tag rocm-xio-latest
         body_path: debian/generated-release-notes.md
         prerelease: true
         make_latest: false
