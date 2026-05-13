@@ -986,6 +986,15 @@ listAvailableEndpoints
 loadKernelModule
 mapPciBar
 nvmeBufferParams
+nvmePrpListDmaSlotIndex
+nvmePrpListWordOffset
+nvmePrpSlotsPerBatchVal
+batchIdx
+isWrite
+params
+prpListDmaForSlot
+prpListEntriesPerPage
+prpSlotsPerBatch
 nvmeDoorbellParams
 nvmeEpConfig
 nvmeIoParams
