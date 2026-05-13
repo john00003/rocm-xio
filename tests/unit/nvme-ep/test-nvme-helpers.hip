@@ -735,6 +735,32 @@ int test_prp_list_noncontiguous_page_offset() {
   return 0;
 }
 
+int test_prp_list_dma_for_page_slots() {
+  nvmeBufferParams params = {};
+  uint64_t pageDmas[3] = {0x100000, 0x310000, 0x520000};
+
+  params.prpListPageDmas = pageDmas;
+  params.prpListPoolDma = pageDmas[0];
+  params.prpEntriesPerCmd = prpListEntriesPerPage();
+
+  ASSERT_EQ(prpListDmaForSlot(params, 0), (uint64_t)0x100000);
+  ASSERT_EQ(prpListDmaForSlot(params, 1), (uint64_t)0x310000);
+  ASSERT_EQ(prpListDmaForSlot(params, 2), (uint64_t)0x520000);
+  return 0;
+}
+
+int test_prp_list_dma_legacy_fallback() {
+  nvmeBufferParams params = {};
+
+  params.prpListPoolDma = 0x100000;
+  params.prpEntriesPerCmd = 4;
+
+  ASSERT_EQ(prpListDmaForSlot(params, 0), (uint64_t)0x100000);
+  ASSERT_EQ(prpListDmaForSlot(params, 1), (uint64_t)0x101000);
+  ASSERT_EQ(prpListDmaForSlot(params, 2), (uint64_t)0x102000);
+  return 0;
+}
+
 int main() {
   int failures = 0;
 
@@ -759,6 +785,8 @@ int main() {
   failures += test_prp_list_contiguous_with_offset();
   failures += test_prp_list_max_transfer_32_pages();
   failures += test_prp_list_noncontiguous_page_offset();
+  failures += test_prp_list_dma_for_page_slots();
+  failures += test_prp_list_dma_legacy_fallback();
 
   failures += test_cqeOk_success();
   failures += test_cqeOk_success_with_phase();
