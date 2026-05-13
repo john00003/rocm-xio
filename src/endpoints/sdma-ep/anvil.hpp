@@ -53,6 +53,22 @@ public:
   int getSdmaEngineId(int srcDeviceId, int dstDeviceId);
 
 private:
+  /**
+   * @brief Return the KFD topology node ID for a HIP-visible device.
+   */
+  uint32_t getKfdNodeId(int deviceId);
+
+  /**
+   * @brief Return the legacy OAM-table SDMA engine for a GPU pair.
+   */
+  int getMappedSdmaEngineId(int srcDeviceId, int dstDeviceId);
+
+  /**
+   * @brief Prefer KFD's recommended SDMA engine mask for a GPU pair.
+   */
+  int getRecommendedSdmaEngineId(int srcDeviceId, int dstDeviceId,
+                                 int fallbackEngineId);
+
   /*
    * MI300X OAM MAP (XGMI topology -> SDMA engine)
    * src\dst  0  1  2  3  4  5  6  7
