@@ -78,8 +78,14 @@ sdma
 SHMEM
 subnet
 TCP
+tcp
 XGMI
 xgmierr
+
+# ===== CLI and environment helpers (docs / tests) =====
+getEnvInt
+getEnvStr
+subcommand
 
 # ===== MPI and Collectives =====
 allgather
