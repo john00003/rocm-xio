@@ -1075,7 +1075,11 @@ __host__ std::string validateConfig(nvmeEpConfig* config) {
  * read vs write list pages match the device when @p bp.prpSlotsPerBatch is 2.
  *
  * @param queue_id        I/O queue id (for log lines).
- * @param bp              Per-queue buffer and PRP parameters.
+ * @param bp              Per-queue buffer and PRP parameters. When
+ *                        @c prpListPageDmas is set, it must point to
+ *                        host-readable memory (values are read on the
+ *                        CPU); do not pass the device alias from
+ *                        @c hipHostGetDevicePointer.
  * @param lbas_per_io     LBAs per NVMe command.
  * @param lba_size        Namespace logical block size in bytes.
  * @param eff_batch       Effective batch size for this launch.
@@ -1774,14 +1778,8 @@ __host__ hipError_t run(XioEndpointConfig* config) {
     if (!kernelConfig.completionQueue &&
         failMissingKernelArg("completionQueue"))
       goto cleanup;
-    if (!kernelConfig.stopRequested && failMissingKernelArg("stopRequested"))
-      goto cleanup;
     if (useLessTiming && !kernelConfig.timingStats &&
         failMissingKernelArg("timingStats"))
-      goto cleanup;
-    if (!useLessTiming &&
-        (!kernelConfig.startTimes || !kernelConfig.endTimes) &&
-        failMissingKernelArg("startTimes/endTimes"))
       goto cleanup;
     if (nvmeConfig->ioParams.readIo != 0) {
       if (!qBufParams.readBuffer && failMissingKernelArg("readBuffer"))
@@ -1810,7 +1808,14 @@ __host__ hipError_t run(XioEndpointConfig* config) {
       goto cleanup;
     }
 
-    dumpNvmeDataPrpIfRequested(qid, qBufParams, nvmeConfig->ioParams.lbasPerIo,
+    // PRP dump runs on the host: prpListDmaForSlot() indexes
+    // prpListPageDmas[], so use the hipHostMalloc mapping, not the
+    // hipHostGetDevicePointer() alias passed to the kernel.
+    nvme_ep::nvmeBufferParams qBufParamsForDump = qBufParams;
+    if (prpPools[q].pageDmas != nullptr)
+      qBufParamsForDump.prpListPageDmas = prpPools[q].pageDmas;
+    dumpNvmeDataPrpIfRequested(qid, qBufParamsForDump,
+                               nvmeConfig->ioParams.lbasPerIo,
                                nvmeConfig->ioParams.lbaSize, effBatch,
                                prpStridePerCmd,
                                nvmeConfig->ioParams.readIo != 0,
