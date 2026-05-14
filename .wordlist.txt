@@ -1032,6 +1032,31 @@ xioBufferInfo
 xioQueueSetup
 XioTimingStats
 
+# ===== test-ep docs and identifiers (HIP / API spellings) =====
+GoogleTest
+cpuTime
+cqeEqual
+dataPattern
+delayNs
+doVerify
+endTimes
+hipInit
+invariants
+launchCpuThreads
+memoryMode
+multithread
+numThreads
+poller
+pollers
+sigint
+sqeEqual
+startTimes
+substepStats
+timingStats
+verifyFail
+verifyPass
+XioComDequeue
+
 # ===== VM Testing Infrastructure Terms =====
 XIOVirtualMachine
 Ansible
