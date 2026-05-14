@@ -69,6 +69,8 @@ jobs:
           CLANGXX: /opt/rocm/llvm/bin/clang++
 
       - name: Run CTests (--label-exclude hardware|system)
+        # Includes test-ep emulate binaries and test-ep-cli-* wrappers
+        # (labels test-ep / cli; no hardware or system label).
         run: |
           ctest --test-dir "${GITHUB_WORKSPACE}/build" -V \
             --label-exclude 'hardware|system' \

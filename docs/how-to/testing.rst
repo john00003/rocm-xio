@@ -109,8 +109,6 @@ These run in CI without hardware:
   ``ExtractBusNumber``, ``GetBusIdDistance``, ``GetLcaDepth``
 - ``test-extract-endpoint`` -- CLI argument parser:
   ``extractEndpointName()``
-- ``test-xio-env`` -- environment variable parsing helpers:
-  ``getEnvInt()`` and ``getEnvStr()``
 - ``test-xio-timing`` -- host-side ``XioTimingStats`` aggregation
 - ``test-tcp-exchange-layout`` -- two-node RDMA TCP exchange wire
   layout and socket byte helpers
@@ -118,6 +116,9 @@ These run in CI without hardware:
 - ``test-nvme-helpers`` -- NVMe SQE/CQE helpers, PRP edge cases, and data
   pattern verification
 - ``test-ep-config`` -- test-ep configuration defaults and SQE/CQE layout
+- ``test-ep-launch-cpu-threads`` -- CPU-only round trip that drives
+  ``xio::test_ep::launchCpuThreads()`` directly in polling, multi-
+  thread, doorbell, and fixed-delay modes
 - ``test-sdma-config`` -- SDMA endpoint config validation, host-visible type
   defaults, and validation rules
 - ``test-sdma-packet-layout`` -- SDMA packet sizes, offsets, and
@@ -128,8 +129,20 @@ These run in CI without hardware:
 System tests
 ------------
 
-- ``test-ep-emulate`` -- Full SQE/CQE round-trip in emulation mode
-  (GPU required)
+- ``test-ep-emulate`` -- Single-thread SQE/CQE round trip in
+  emulation mode
+- ``test-ep-emulate-multithread`` -- 4-thread, 16-iteration round
+  trip; exercises per-thread queue indexing in the emulation kernel
+- ``test-ep-emulate-doorbell`` -- 4-thread doorbell-mode round trip
+  with queue depth ``iterations * threads``; exercises the shared atomic
+  sequence counter and barrier
+- ``test-ep-emulate-timing`` -- Asserts that ``startTimes`` /
+  ``endTimes`` and the aggregate ``XioTimingStats`` are populated
+- ``test-ep-emulate-delay`` -- Asserts that a fixed CPU response
+  delay is honoured
+- ``test-ep-cli-emulate*`` -- ``xio-tester test-ep --emulate``
+  smoke tests (labels ``test-ep`` and ``cli``); skip when ``xio-tester``
+  is absent
 
 Hardware tests
 --------------
