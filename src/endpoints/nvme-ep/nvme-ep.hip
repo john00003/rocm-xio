@@ -1837,20 +1837,35 @@ __host__ hipError_t run(XioEndpointConfig* config) {
                     "(stream %p)\n",
                     qid, (void*)streams[q]);
 
+    (void)xio::clearHipLaunchError("nvme-ep", "gpuKernel", qid);
+
     hipLaunchKernelGGL(nvme_ep::gpuKernel, dim3(1), dim3(kernelThreads),
                        dynShmemBytes, streams[q], kernelConfig, ioParams,
                        qDoorbellParams, qBufParams);
+
+    hipError_t launchErr = xio::checkHipLaunchError("nvme-ep", "gpuKernel", qid,
+                                                    1, kernelThreads,
+                                                    dynShmemBytes, streams[q]);
+    if (launchErr != hipSuccess) {
+      result = launchErr;
+      goto cleanup;
+    }
   }
 
   ROCXIO_LOG_INFO("%u kernel%s launched.\n", numQueues,
                   numQueues > 1 ? "s" : "");
 
-  // Wait for all GPU kernels to complete
-  result = hipDeviceSynchronize();
-  if (result != hipSuccess) {
-    ROCXIO_LOG_INFO("Device synchronization error: "
-                    "%s (code: %d).\n",
-                    hipGetErrorString(result), result);
+  // Wait for all GPU kernels to complete.  Stream-specific sync gives a
+  // precise queue id in multi-queue mode while preserving default-stream
+  // behavior for the single-queue path.
+  for (uint16_t q = 0; q < numQueues; q++) {
+    uint16_t qid = q < nvmeConfig->queueIds.size()
+                     ? nvmeConfig->queueIds[q]
+                     : (uint16_t)(baseQueueId + q);
+    result = xio::syncHipKernel("nvme-ep", "gpuKernel", qid, streams[q]);
+    if (result != hipSuccess) {
+      goto cleanup;
+    }
   }
 
   // ---- Verify read buffers ----

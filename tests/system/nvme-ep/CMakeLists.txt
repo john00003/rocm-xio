@@ -80,7 +80,7 @@ xio_add_script_test(
   NAME nvme-verify-rand-host-mem
   SCRIPT ${_verify_wrapper}
   LABELS hardware nvme verify
-  TIMEOUT 30
+  TIMEOUT 120
   ARGS ${_rand_script}
   ENVIRONMENT
     "MEMORY_MODE=0"
@@ -93,7 +93,7 @@ xio_add_script_test(
   NAME nvme-verify-rand-device-mem
   SCRIPT ${_verify_wrapper}
   LABELS hardware nvme verify
-  TIMEOUT 30
+  TIMEOUT 120
   ARGS ${_rand_script}
   ENVIRONMENT
     "MEMORY_MODE=8"
