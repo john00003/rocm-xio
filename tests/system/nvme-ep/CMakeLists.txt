@@ -40,7 +40,6 @@ xio_add_script_test(
     "MEMORY_MODE=0"
     "WRITE_IO=4"
     "LFSR_SEED=0x1234"
-    "USE_PCI_MMIO_BRIDGE=0"
     "XIO_TESTER=${_xio_tester}"
 )
 
@@ -55,7 +54,7 @@ xio_add_script_test(
     "WRITE_IO=4"
     "LFSR_SEED=0x5678"
     "BASE_LBA=1024"
-    "USE_PCI_MMIO_BRIDGE=0"
+    "USE_PCI_MMIO_BRIDGE=1"
     "XIO_TESTER=${_xio_tester}"
 )
 
@@ -70,7 +69,7 @@ xio_add_script_test(
     "WRITE_IO=4"
     "LFSR_SEED=0x9abc"
     "BASE_LBA=1024"
-    "USE_PCI_MMIO_BRIDGE=0"
+    "USE_PCI_MMIO_BRIDGE=1"
     "XIO_TESTER=${_xio_tester}"
 )
 
@@ -279,7 +278,7 @@ xio_add_script_test(
     "BLOCKS_PER_CMD=32"
     "LFSR_SEED=0xCAFE"
     "BASE_LBA=2048"
-    "USE_PCI_MMIO_BRIDGE=0"
+    "USE_PCI_MMIO_BRIDGE=1"
     "XIO_TESTER=${_xio_tester}"
 )
 

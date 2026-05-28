@@ -805,7 +805,7 @@ hipError_t allocateQueue(size_t size, bool isDeviceMemory,
                          const char* queueName, void** ptr) {
   if (isDeviceMemory) {
     hsa_status_t s = allocDeviceMemory(size, ptr, queueName,
-                                       XIO_DEVICE_MEM_HIP);
+                                       XIO_DEVICE_MEM_UNCACHED);  /* TEMP: bypass GPU L2 for QEMU VRAM-P2P */
     if (s != HSA_STATUS_SUCCESS)
       return hipErrorMemoryAllocation;
     hipError_t memsetErr = hipMemset(*ptr, 0, size);
@@ -2570,7 +2570,7 @@ __host__ hipError_t allocateGpuAccessibleBuffer(
   if (dataBufferOnDevice) {
     hsa_status_t s = allocDeviceMemory(size, &bufferInfo->hostPtr,
                                        "GPU accessible buffer",
-                                       XIO_DEVICE_MEM_HIP);
+                                       XIO_DEVICE_MEM_UNCACHED);
     if (s != HSA_STATUS_SUCCESS) {
       ROCXIO_LOG_ERROR("allocDeviceMemory failed\n");
       return hipErrorMemoryAllocation;

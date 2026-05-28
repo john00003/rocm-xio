@@ -144,6 +144,9 @@ write_cmd="$write_cmd --lfsr-seed $LFSR_SEED"
 write_cmd="$write_cmd --base-lba $BASE_LBA"
 write_cmd="$write_cmd --queue-length $QUEUE_LENGTH"
 write_cmd="$write_cmd -m $MEMORY_MODE"
+if [ "${USE_PCI_MMIO_BRIDGE:-0}" = "1" ]; then
+    write_cmd="$write_cmd --pci-mmio-bridge"
+fi
 if [ -n "$BATCH_SIZE" ]; then
     write_cmd="$write_cmd --batch-size $BATCH_SIZE"
 fi
