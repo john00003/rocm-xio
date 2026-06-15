@@ -96,10 +96,12 @@ EOF
         --setuser root --setgroup root
 
     log ceph-up "Waiting for mon quorum..."
+    local ok=0
     for _ in $(seq 1 60); do
-        ceph -c "${CEPH_CONF}" -s >/dev/null 2>&1 && break
+        if ceph -c "${CEPH_CONF}" -s >/dev/null 2>&1; then ok=1; break; fi
         sleep 0.5
     done
+    [ "$ok" = 1 ] || die "mon quorum did not form within 30s (see ceph daemon logs)"
 
     # disable insecure-global-id warning noise
     ceph -c "${CEPH_CONF}" config set mon auth_allow_insecure_global_id_reclaim false \
@@ -134,10 +136,12 @@ EOF
         --pid-file /var/run/ceph/osd.0.pid
 
     log ceph-up "Waiting for OSD up/in..."
+    local osd_ok=0
     for _ in $(seq 1 120); do
-        ceph -c "${CEPH_CONF}" osd stat 2>/dev/null | grep -q '1 up' && break
+        if ceph -c "${CEPH_CONF}" osd stat 2>/dev/null | grep -q '1 up'; then osd_ok=1; break; fi
         sleep 0.5
     done
+    [ "$osd_ok" = 1 ] || die "OSD did not come up within 60s (see ceph daemon logs)"
     ceph -c "${CEPH_CONF}" -s || true
 }
 
@@ -148,10 +152,12 @@ ensure_pool() {
         ceph -c "${CEPH_CONF}" osd pool application enable "${KV_POOL}" rados
     fi
     # PGs must be active before rados ops or they hang.
+    local pg_ok=0
     for _ in $(seq 1 120); do
-        ceph -c "${CEPH_CONF}" -s 2>/dev/null | grep -q 'active+clean' && break
+        if ceph -c "${CEPH_CONF}" -s 2>/dev/null | grep -q 'active+clean'; then pg_ok=1; break; fi
         sleep 0.5
     done
+    [ "$pg_ok" = 1 ] || die "PGs did not reach active+clean within 60s (see ceph daemon logs)"
     rados -c "${CEPH_CONF}" lspools 2>/dev/null | while read -r p; do
         log ceph-up "  pool: $p"
     done || true
