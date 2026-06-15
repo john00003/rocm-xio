@@ -2,6 +2,9 @@
 # Start SPDK nvmf_tgt + expose a kvdev_rados KV namespace as a vfio-user socket.
 # Ported from the proven deploy/kv-target.sh. Returns once the socket is up
 # (does NOT foreground); nvmf_tgt pid tracked via common.sh for cleanup.
+# NOTE: this stage only RECORDS the pid; reaping is the caller's job. The serve
+# stage MUST install `trap 'kill_tracked' EXIT INT TERM` so a signal during the
+# socket-wait window does not orphan nvmf_tgt (see entrypoint serve stage).
 set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
