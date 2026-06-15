@@ -63,7 +63,7 @@ log() {
   local stage="$1"; shift
   local line
   line="[$(date -u +%H:%M:%S)] [$stage] $*"
-  printf '%s\n' "$line" | tee -a "$LOG_DIR/$stage.log" >&2
+  printf '%s\n' "$line" | tee -a "$LOG_DIR/$stage.log" >&2 || true
 }
 die() { log "${STAGE:-error}" "FATAL: $*"; exit 1; }
 
