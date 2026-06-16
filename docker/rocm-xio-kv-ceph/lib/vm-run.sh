@@ -23,6 +23,10 @@ vm_run() {
   # PCI_HOSTDEV is NVMe-FIRST so VRAM_DEV_INDEX=2 (1-based) selects the GPU VGA fn.
   # QEMU_PATH is a string PREFIX in the launcher (${QEMU_PATH}qemu-system-x86_64),
   # so it must be the binary's DIRECTORY *with* a trailing slash.
+  # The launcher runs in the FOREGROUND (no exec): vm_run blocks until QEMU exits.
+  # We deliberately do NOT exec, so the caller's process (the serve stage) keeps
+  # its `trap kill_tracked EXIT INT TERM` and can reap the backgrounded nvmf_tgt
+  # when QEMU exits or the container is stopped. The serve stage forwards signals.
   VM_NAME="$VM_NAME" SSH_PORT="$SSH_PORT" \
   PCI_HOSTDEV="${NVME_BDF},${GPU_BDFS}" \
   VFIO_USERDEV="$sock" \
@@ -30,6 +34,6 @@ vm_run() {
   VRAM_DEV_INDEX="$VRAM_DEV_INDEX" VRAM_BAR="$VRAM_BAR" \
   VCPUS="$VCPUS" VMEM="$VMEM" NVME="$NVME" UEFI=enable \
   QEMU_PATH="$(dirname "$QEMU_BIN")/" IMAGES="$IMAGES_DIR" \
-    exec "./$(basename "$RUNVM_SCRIPT")"
+    "./$(basename "$RUNVM_SCRIPT")"
 }
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then vm_run; fi
