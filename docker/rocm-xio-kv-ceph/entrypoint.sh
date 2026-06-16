@@ -32,16 +32,23 @@ case "$stage" in
   build-vm)
     # shellcheck disable=SC2034
     STAGE=build-vm
+    # shellcheck source=/dev/null
     source "$HERE/lib/guard.sh"; guard_nvme_bdf; guard_no_clobber
+    # shellcheck source=/dev/null
     source "$HERE/lib/vm-build.sh"; vm_build ;;
 
   serve)
     # shellcheck disable=SC2034
     STAGE=serve
+    # shellcheck source=/dev/null
     source "$HERE/lib/guard.sh"; guard_all
+    # shellcheck source=/dev/null
     source "$HERE/lib/ceph-up.sh"
+    # shellcheck source=/dev/null
     source "$HERE/lib/spdk-kv.sh"
+    # shellcheck source=/dev/null
     source "$HERE/lib/vm-build.sh"
+    # shellcheck source=/dev/null
     source "$HERE/lib/vm-run.sh"
     # vm_run blocks in the foreground (no exec), so this trap survives and reaps
     # the backgrounded nvmf_tgt (+ any tracked pid) when QEMU exits or on signal.
@@ -66,6 +73,8 @@ case "$stage" in
     ssh "${SSHOPT[@]}" ubuntu@localhost 'test -d ~/src/rocm-xio && test -e /dev/rocm-xio && lsmod | grep -q rocm' \
       || die "guest not provisioned: ~/src/rocm-xio / /dev/rocm-xio / kmod missing (check build-vm Ansible)"
     log gpu-e2e "running ctest (taskset -c $TASKSET_CPUS, -LE $CTEST_LABEL_EXCLUDE)"
+    # Host-side expansion of the env vars into the remote command is intentional.
+    # shellcheck disable=SC2029
     ssh "${SSHOPT[@]}" ubuntu@localhost \
       "cd ~/src/rocm-xio && sudo env ROCXIO_NVME_DEVICE=$ROCXIO_NVME_DEVICE \
         NVME_DEVICE=$ROCXIO_NVME_DEVICE USE_PCI_MMIO_BRIDGE=$USE_PCI_MMIO_BRIDGE \
