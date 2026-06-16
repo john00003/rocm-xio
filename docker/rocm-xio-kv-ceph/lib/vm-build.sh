@@ -8,6 +8,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$HERE/common.sh"
 TOOLING=/opt/qemu-minimal
 ANSIBLE_SRC=/opt/batesste-ansible
+# gen-vm boots a throwaway builder VM via ${QEMU_PATH}qemu-system-x86_64 (a string
+# PREFIX, default empty => PATH lookup). Our QEMU is built at /opt/qemu/build, not on
+# PATH, so we must pass QEMU_PATH (dir + trailing slash) into gen-vm too.
+: "${QEMU_BIN:=/opt/qemu/build/qemu-system-x86_64}"
 # gen-vm writes the final image to ${IMAGES}/${VM_NAME}.qcow2 (see gen-vm tail:
 # create_image_with_backing / NO_BACKING mv). Verified against the real gen-vm.
 QCOW="$IMAGES_DIR/$VM_NAME.qcow2"
@@ -69,6 +73,7 @@ EOF
   ( cd "$TOOLING/$(dirname "$GENVM_SCRIPT")" && \
     VM_NAME="$VM_NAME" RELEASE=noble VCPUS="$VCPUS" VMEM="$VMEM" \
     SSH_KEY_FILE="$sshkey" \
+    QEMU_PATH="$(dirname "$QEMU_BIN")/" \
     SSH_PORT="$SSH_PORT" IMAGES="$IMAGES_DIR" \
     ANSIBLE_SETUP=true ANSIBLE_DIR="$ANSIBLE_SRC" \
     ANSIBLE_PLAYBOOK="$ANSIBLE_PLAYBOOK" ANSIBLE_INVENTORY="$ANSIBLE_INVENTORY" \
