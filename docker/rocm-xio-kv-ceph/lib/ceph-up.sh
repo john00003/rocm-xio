@@ -111,7 +111,16 @@ EOF
     ceph -c "${CEPH_CONF}" auth get-or-create mgr.x \
         mon 'allow profile mgr' osd 'allow *' mds 'allow *' \
         > /var/lib/ceph/mgr/ceph-x/keyring
-    ceph-mgr -i x --setuser root --setgroup root
+    # ceph-mgr blocks in monclient(hunting) until it authenticates and fetches
+    # the monmap/config BEFORE it daemonizes (unlike ceph-mon/ceph-osd, which
+    # background immediately). Without an explicit -n/--keyring it loads the
+    # first keyring on the default search path (/etc/ceph/ceph.client.admin.
+    # keyring) and tries to auth as mgr.x with the admin key, which the mon
+    # rejects ("Operation not permitted") -> it loops forever and start_ceph
+    # hangs here. Point it at its own data-dir keyring (what ceph's systemd
+    # units do) so it authenticates correctly and backgrounds.
+    ceph-mgr -i x -n mgr.x --keyring /var/lib/ceph/mgr/ceph-x/keyring \
+        --setuser root --setgroup root
 
     # --- single OSD (file-backed bluestore via loop-less raw file) ---
     log ceph-up "Creating OSD 0..."
@@ -125,13 +134,20 @@ EOF
 
     # 5 GiB file-backed bluestore block device for the OSD.
     truncate -s 5G /var/lib/ceph/osd/ceph-0/block.img
+    # As with ceph-mgr above, ceph-osd fetches its config from the mon before
+    # doing anything (mkfs included) and, without an explicit -n/--keyring,
+    # loads /etc/ceph/ceph.client.admin.keyring and tries to auth as osd.N
+    # with the admin key -> mon rejects -> it loops in monclient(hunting)
+    # forever and --mkfs never returns. Point it at the OSD's own keyring.
     ceph-osd -i "${osd_id}" --mkfs --osd-uuid "${osd_uuid}" \
         --osd-data /var/lib/ceph/osd/ceph-0 \
         --bluestore-block-path /var/lib/ceph/osd/ceph-0/block.img \
+        -n "osd.${osd_id}" --keyring /var/lib/ceph/osd/ceph-0/keyring \
         --setuser root --setgroup root
     ceph-osd -i "${osd_id}" \
         --osd-data /var/lib/ceph/osd/ceph-0 \
         --bluestore-block-path /var/lib/ceph/osd/ceph-0/block.img \
+        -n "osd.${osd_id}" --keyring /var/lib/ceph/osd/ceph-0/keyring \
         --setuser root --setgroup root \
         --pid-file /var/run/ceph/osd.0.pid
 
