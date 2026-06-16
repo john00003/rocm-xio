@@ -133,6 +133,13 @@ EOF
     log build-vm "WARN: /etc/passwd not writable; ssh may abort on mounted ~/.ssh/config"
   fi
   # --- run gen-vm WITH provisioning ---
+  # The gen-vm builder VM has NO GPU (GPU passthrough only happens at runtime in the
+  # serve stage). Disable the GPU-dependent CHECK steps so provisioning completes:
+  # the guest still gets rocm-xio BUILT and the kmod INSTALLED/LOADED (none of which
+  # need a GPU); rocminfo / HIP-compile / unit-tests / test-endpoint are validated at
+  # runtime via the gpu-e2e stage instead. Passed as -e extra-vars (override play
+  # vars). Overridable via BUILD_TIME_ANSIBLE_VARS for non-default provisioning.
+  : "${BUILD_TIME_ANSIBLE_VARS:=-e rocm_setup_run_checks=false -e rocm_xio_setup_check_rocminfo=false -e rocm_xio_setup_run_unit_tests=false -e rocm_xio_setup_run_test_endpoint=false}"
   log build-vm "running $GENVM_SCRIPT with Ansible (playbook=$ANSIBLE_PLAYBOOK)"
   ( cd "$TOOLING/$(dirname "$GENVM_SCRIPT")" && \
     HOME="$genvm_home" \
@@ -142,6 +149,7 @@ EOF
     SSH_PORT="$SSH_PORT" IMAGES="$IMAGES_DIR" \
     ANSIBLE_SETUP=true ANSIBLE_DIR="$ANSIBLE_SRC" \
     ANSIBLE_PLAYBOOK="$ANSIBLE_PLAYBOOK" ANSIBLE_INVENTORY="$ANSIBLE_INVENTORY" \
+    ANSIBLE_EXTRA_ARGS="$BUILD_TIME_ANSIBLE_VARS" \
       "./$(basename "$GENVM_SCRIPT")" >>"$LOG_DIR/gen-vm.log" 2>&1 ) \
     || die "gen-vm failed (see $LOG_DIR/gen-vm.log)"
   [ -f "$QCOW" ] || die "gen-vm did not produce $QCOW (check IMAGES/VM_NAME in gen-vm.log)"
