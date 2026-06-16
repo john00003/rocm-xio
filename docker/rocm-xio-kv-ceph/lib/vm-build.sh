@@ -139,7 +139,23 @@ EOF
   # need a GPU); rocminfo / HIP-compile / unit-tests / test-endpoint are validated at
   # runtime via the gpu-e2e stage instead. Passed as -e extra-vars (override play
   # vars). Overridable via BUILD_TIME_ANSIBLE_VARS for non-default provisioning.
-  : "${BUILD_TIME_ANSIBLE_VARS:=-e rocm_setup_run_checks=false -e rocm_xio_setup_check_rocminfo=false -e rocm_xio_setup_run_unit_tests=false -e rocm_xio_setup_run_test_endpoint=false}"
+  #
+  # The gates MUST be passed as REAL JSON booleans, not "var=false" strings: with
+  # DEFAULT_JINJA2_NATIVE off (ansible-core 2.16 default), `-e var=false` makes the
+  # var the STRING "false", which a bare `when: var` evaluates as TRUTHY, so the
+  # check is NOT skipped. A compact JSON object (`-e {"var":false,...}`) yields a
+  # real boolean false that `when:` skips on. Compact == NO internal spaces, so the
+  # whole object survives gen-vm's unquoted word-split of ANSIBLE_EXTRA_ARGS as one
+  # token after `-e`. Gates: rocm_setup_run_checks gates rocm_setup/rocm_check.yml
+  # (rocminfo + hipcc); rocm_xio_setup_run_basic_checks gates rocm_xio_check.yml
+  # (rocminfo + unit tests + test endpoint). The latter is the import-level gate;
+  # run_unit_tests/run_test_endpoint are belt-and-suspenders inside that file. None
+  # of these gate the rocm-xio build or kmod install.
+  # NB: assigned via a plain default check (not ${VAR:=...}) because the JSON's own
+  # closing brace would otherwise be swallowed by the ${...} parameter-expansion brace.
+  if [ -z "${BUILD_TIME_ANSIBLE_VARS:-}" ]; then
+    BUILD_TIME_ANSIBLE_VARS='-e {"rocm_setup_run_checks":false,"rocm_xio_setup_run_basic_checks":false,"rocm_xio_setup_run_unit_tests":false,"rocm_xio_setup_run_test_endpoint":false}'
+  fi
   log build-vm "running $GENVM_SCRIPT with Ansible (playbook=$ANSIBLE_PLAYBOOK)"
   ( cd "$TOOLING/$(dirname "$GENVM_SCRIPT")" && \
     HOME="$genvm_home" \
