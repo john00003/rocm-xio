@@ -29,7 +29,54 @@ case "$stage" in
   shell)
     # shellcheck source=/dev/null
     source "$HERE/lib/ceph-up.sh"; ceph_up; exec /bin/bash ;;
-  build-vm|serve|gpu-e2e|cleanup)
-    die "stage '$stage' not implemented until Chunk 3" ;;
+  build-vm)
+    # shellcheck disable=SC2034
+    STAGE=build-vm
+    source "$HERE/lib/guard.sh"; guard_nvme_bdf; guard_no_clobber
+    source "$HERE/lib/vm-build.sh"; vm_build ;;
+
+  serve)
+    # shellcheck disable=SC2034
+    STAGE=serve
+    source "$HERE/lib/guard.sh"; guard_all
+    source "$HERE/lib/ceph-up.sh"
+    source "$HERE/lib/spdk-kv.sh"
+    source "$HERE/lib/vm-build.sh"
+    source "$HERE/lib/vm-run.sh"
+    # vm_run blocks in the foreground (no exec), so this trap survives and reaps
+    # the backgrounded nvmf_tgt (+ any tracked pid) when QEMU exits or on signal.
+    trap 'kill_tracked' EXIT INT TERM
+    ceph_up
+    spdk_kv_up
+    vm_build
+    vm_run ;;
+
+  gpu-e2e)
+    # shellcheck disable=SC2034
+    STAGE=gpu-e2e
+    SSHOPT=(-p "$SSH_PORT" -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o ConnectTimeout=5)
+    log gpu-e2e "waiting for guest SSH on $SSH_PORT"
+    up=0
+    for _ in $(seq 1 90); do
+      ssh "${SSHOPT[@]}" ubuntu@localhost 'echo ok' >/dev/null 2>&1 && { up=1; break; }
+      sleep 2
+    done
+    [ "$up" = 1 ] || die "guest SSH never came up on $SSH_PORT"
+    # Preflight: fail fast with a clear message if provisioning did not land.
+    ssh "${SSHOPT[@]}" ubuntu@localhost 'test -d ~/src/rocm-xio && test -e /dev/rocm-xio && lsmod | grep -q rocm' \
+      || die "guest not provisioned: ~/src/rocm-xio / /dev/rocm-xio / kmod missing (check build-vm Ansible)"
+    log gpu-e2e "running ctest (taskset -c $TASKSET_CPUS, -LE $CTEST_LABEL_EXCLUDE)"
+    ssh "${SSHOPT[@]}" ubuntu@localhost \
+      "cd ~/src/rocm-xio && sudo env ROCXIO_NVME_DEVICE=$ROCXIO_NVME_DEVICE \
+        NVME_DEVICE=$ROCXIO_NVME_DEVICE USE_PCI_MMIO_BRIDGE=$USE_PCI_MMIO_BRIDGE \
+        taskset -c $TASKSET_CPUS ctest --test-dir build -LE $CTEST_LABEL_EXCLUDE --output-on-failure" \
+      2>&1 | tee -a "$LOG_DIR/gpu-e2e.log"
+    log gpu-e2e "DONE (see $LOG_DIR/gpu-e2e.log for the NN/NN result)" ;;
+
+  cleanup)
+    # shellcheck disable=SC2034
+    STAGE=cleanup
+    kill_tracked
+    log cleanup "done" ;;
   *) die "unknown stage: $stage (use: selftest|shell|build-vm|serve|gpu-e2e|cleanup)" ;;
 esac
