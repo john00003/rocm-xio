@@ -29,6 +29,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         qemu-utils cloud-image-utils openssh-client iproute2 \
         ansible \
         ovmf \
+        pciutils \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- SPDK: clone fork, init submodules (NON-recursive), pkgdep, configure, build ----
