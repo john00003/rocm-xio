@@ -1,8 +1,12 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Each lib/*.sh sets its OWN top-level HERE (to find common.sh), which clobbers
+# this script's HERE when sourced. Capture the lib dir in a dedicated var the
+# libs never touch, so sequential sources (e.g. in serve) don't double the path.
+LIBDIR="$HERE/lib"
 # shellcheck source=/dev/null
-source "$HERE/lib/common.sh"
+source "$LIBDIR/common.sh"
 
 stage="${1:-serve}"; shift || true
 case "$stage" in
@@ -12,7 +16,7 @@ case "$stage" in
     # shellcheck disable=SC2034
     STAGE=selftest
     # shellcheck source=/dev/null
-    source "$HERE/lib/ceph-up.sh"; ceph_up
+    source "$LIBDIR/ceph-up.sh"; ceph_up
     log selftest "running fork self-test: test/nvmf/kv_rados/kv_rados_vfio_user.sh"
     cd "$SPDK_DIR/test/nvmf/kv_rados"
     export CEPH_CONF CEPH_KEYRING RADOS_BIN=rados KV_POOL KV_NS CEPH_USER=admin
@@ -28,28 +32,28 @@ case "$stage" in
     ;;
   shell)
     # shellcheck source=/dev/null
-    source "$HERE/lib/ceph-up.sh"; ceph_up; exec /bin/bash ;;
+    source "$LIBDIR/ceph-up.sh"; ceph_up; exec /bin/bash ;;
   build-vm)
     # shellcheck disable=SC2034
     STAGE=build-vm
     # shellcheck source=/dev/null
-    source "$HERE/lib/guard.sh"; guard_nvme_bdf; guard_no_clobber
+    source "$LIBDIR/guard.sh"; guard_nvme_bdf; guard_no_clobber
     # shellcheck source=/dev/null
-    source "$HERE/lib/vm-build.sh"; vm_build ;;
+    source "$LIBDIR/vm-build.sh"; vm_build ;;
 
   serve)
     # shellcheck disable=SC2034
     STAGE=serve
     # shellcheck source=/dev/null
-    source "$HERE/lib/guard.sh"; guard_all
+    source "$LIBDIR/guard.sh"; guard_all
     # shellcheck source=/dev/null
-    source "$HERE/lib/ceph-up.sh"
+    source "$LIBDIR/ceph-up.sh"
     # shellcheck source=/dev/null
-    source "$HERE/lib/spdk-kv.sh"
+    source "$LIBDIR/spdk-kv.sh"
     # shellcheck source=/dev/null
-    source "$HERE/lib/vm-build.sh"
+    source "$LIBDIR/vm-build.sh"
     # shellcheck source=/dev/null
-    source "$HERE/lib/vm-run.sh"
+    source "$LIBDIR/vm-run.sh"
     # vm_run blocks in the foreground (no exec), so this trap survives and reaps
     # the backgrounded nvmf_tgt (+ any tracked pid) when QEMU exits or on signal.
     trap 'kill_tracked' EXIT INT TERM
