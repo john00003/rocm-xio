@@ -29,12 +29,16 @@ vm_run() {
   # We deliberately do NOT exec, so the caller's process (the serve stage) keeps
   # its `trap kill_tracked EXIT INT TERM` and can reap the backgrounded nvmf_tgt
   # when QEMU exits or the container is stopped. The serve stage forwards signals.
+  # FILESYSTEM=none disables the launcher's 9p host-share (-virtfs local,path=...).
+  # The KV E2E needs no host share (rocm-xio is baked into the guest qcow), and the
+  # default ($HOME/code) does not exist in the container -> qemu fsdev init failure.
   VM_NAME="$VM_NAME" SSH_PORT="$SSH_PORT" \
   PCI_HOSTDEV="${NVME_BDF},${GPU_BDFS}" \
   VFIO_USERDEV="$sock" \
   PCI_MMIO_BRIDGE="$PCI_MMIO_BRIDGE" IOMMU="$IOMMU" \
   VRAM_DEV_INDEX="$VRAM_DEV_INDEX" VRAM_BAR="$VRAM_BAR" \
   VCPUS="$VCPUS" VMEM="$VMEM" NVME="$NVME" UEFI=enable \
+  FILESYSTEM="${FILESYSTEM:-none}" \
   QEMU_PATH="$(dirname "$QEMU_BIN")/" IMAGES="$IMAGES_DIR" \
     "./$(basename "$RUNVM_SCRIPT")"
 }
