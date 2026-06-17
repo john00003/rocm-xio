@@ -6,7 +6,8 @@ set -Eeuo pipefail
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # shellcheck source=/dev/null
 source "$HERE/common.sh"
-TOOLING=/opt/qemu-minimal
+# Tooling clone is shared via $TOOLING_DIR (on the bind mount) so the serve
+# container's launcher can find it; ANSIBLE_SRC is build-time only (ephemeral /opt).
 ANSIBLE_SRC=/opt/batesste-ansible
 # gen-vm boots a throwaway builder VM via ${QEMU_PATH}qemu-system-x86_64 (a string
 # PREFIX, default empty => PATH lookup). Our QEMU is built at /opt/qemu/build, not on
@@ -24,13 +25,9 @@ vm_build() {
   if [ -f "$QCOW" ] && [ "${FORCE:-0}" != "1" ]; then
     log build-vm "qcow exists ($QCOW); skip (FORCE=1 to rebuild)"; return 0
   fi
-  # --- tooling repo (gen-vm + launcher) ---
-  if [ ! -d "$TOOLING/.git" ]; then
-    log build-vm "cloning tooling $QEMU_MINIMAL_REMOTE@$QEMU_MINIMAL_BRANCH"
-    GIT_TERMINAL_PROMPT=0 git clone --branch "$QEMU_MINIMAL_BRANCH" "$QEMU_MINIMAL_REMOTE" "$TOOLING" \
-      || die "tooling clone failed (private? see README 'Private fork clone')"
-  fi
-  [ -f "$TOOLING/$GENVM_SCRIPT" ] || die "GENVM_SCRIPT $GENVM_SCRIPT not in tooling repo"
+  # --- tooling repo (gen-vm + launcher), shared on the bind mount ---
+  ensure_tooling
+  [ -f "$TOOLING_DIR/$GENVM_SCRIPT" ] || die "GENVM_SCRIPT $GENVM_SCRIPT not in tooling repo"
   # --- ansible provisioning repo (the batesste collection) ---
   if [ ! -d "$ANSIBLE_SRC/.git" ]; then
     log build-vm "cloning ansible $ANSIBLE_REMOTE@$ANSIBLE_BRANCH"
@@ -157,7 +154,7 @@ EOF
     BUILD_TIME_ANSIBLE_VARS='-e {"rocm_setup_run_checks":false,"rocm_xio_setup_run_basic_checks":false,"rocm_xio_setup_run_unit_tests":false,"rocm_xio_setup_run_test_endpoint":false}'
   fi
   log build-vm "running $GENVM_SCRIPT with Ansible (playbook=$ANSIBLE_PLAYBOOK)"
-  ( cd "$TOOLING/$(dirname "$GENVM_SCRIPT")" && \
+  ( cd "$TOOLING_DIR/$(dirname "$GENVM_SCRIPT")" && \
     HOME="$genvm_home" \
     VM_NAME="$VM_NAME" RELEASE=noble VCPUS="$VCPUS" VMEM="$VMEM" \
     SSH_KEY_FILE="$genvm_sshkey" \

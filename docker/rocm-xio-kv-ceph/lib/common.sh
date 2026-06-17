@@ -9,6 +9,10 @@ export IMAGES_DIR="$DATA_DIR/images"
 export LOG_DIR="$DATA_DIR/log"
 export CEPH_DIR="$DATA_DIR/ceph"
 export RUN_DIR="$DATA_DIR/run"
+# Tooling clone lives on the bind mount (NOT the ephemeral container fs) so the
+# build-vm container's clone persists and the serve container's launcher can find
+# it. Both stages call ensure_tooling (below) to clone-if-missing.
+export TOOLING_DIR="$DATA_DIR/qemu-minimal"
 mkdir -p "$IMAGES_DIR" "$LOG_DIR" "$CEPH_DIR" "$RUN_DIR"
 
 # ---- VM tooling source (upstream default; override for full GPU pass) ----
@@ -79,6 +83,17 @@ kill_tracked() {
     fi
     rm -f "$f"
   done
+}
+
+# ---- VM tooling clone (shared by build-vm + vm-run; persists on the bind mount) ----
+# Clone $QEMU_MINIMAL_REMOTE@$QEMU_MINIMAL_BRANCH into $TOOLING_DIR if absent.
+# Idempotent: a present .git is reused. Callers reference $TOOLING_DIR afterwards.
+ensure_tooling() {
+  if [ ! -d "$TOOLING_DIR/.git" ]; then
+    log "${STAGE:-tooling}" "cloning tooling $QEMU_MINIMAL_REMOTE@$QEMU_MINIMAL_BRANCH -> $TOOLING_DIR"
+    GIT_TERMINAL_PROMPT=0 git clone --branch "$QEMU_MINIMAL_BRANCH" "$QEMU_MINIMAL_REMOTE" "$TOOLING_DIR" \
+      || die "tooling clone failed (private? see README 'Private fork clone')"
+  fi
 }
 
 # ---- SPDK hugepage flag selection ----
