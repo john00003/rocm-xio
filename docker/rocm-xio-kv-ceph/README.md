@@ -269,12 +269,31 @@ docker exec -it kv-serve /opt/kv/entrypoint.sh gpu-e2e
 The result and full ctest output are logged on the host at
 `$DATA_DIR/log/gpu-e2e.log`.
 
-**Honest expectation.** A full **48/48** pass requires *both* the tuned launcher
-(VRAM index, i.e. `VRAM_DEV_INDEX` set) *and* the guest device-mem patch
-(`XIO_DEVICE_MEM_UNCACHED`), per `docs/ROCXIO_CONFIG_MATRIX.md`. With the
-fork-override launcher and real NVMe but **without** the device-mem patch you
-land at the **43/48** tier (the 5 NVMe→VRAM device-mem tests fail). The emulated
-path tops out at **46/48**. See the matrix for the exact tiers.
+**Validated result (Navi 21 / gfx1030, real Samsung 980 PRO): 90/93 tests pass**
+(`ctest -LE rdma`). Three tests remain failing — `test-doorbell-coherence`,
+`nvme-verify-seq-device-mem-queues`, `nvme-smoke-memmode-3` — all in the
+multi-queue device-memory + doorbell-coherence path (a GPU HSA exception, code
+`0x1016`). These are deep device-write/multi-queue faults, documented as a
+known follow-up; they are independent of the container plumbing.
+
+**Two things are required for this result and are baked into the provisioning**
+(`john00003/batesste-ansible @ users/john00003/rocm-xio-kv-docker`):
+
+1. **GPU code-object arch must match the runtime GPU.** The guest qcow is built
+   in a GPU-less builder VM, so rocm-xio's CMake auto-detect finds no GPU and
+   falls back to `gfx906`; the resulting `xio-tester` then **segfaults on every
+   kernel launch** against a `gfx1030` card. The role pins
+   `rocm_xio_setup_offload_arch` (default `gfx1030`, override via
+   `guest_gpu_arch`) → `cmake -DOFFLOAD_ARCH=`. Match this to YOUR GPU.
+2. **GPU-passthrough boot params.** The role applies a GRUB drop-in
+   (`pci=realloc=on intel_iommu=on iommu=pt nvme.poll_queues=1`) via
+   `rocm_xio_setup_grub_cmdline`.
+
+Note: Kyle's `nvme-kv` branch already incorporates the `XIO_DEVICE_MEM_UNCACHED`
+device-mem fix (in `allocateGpuAccessibleBuffer`), so the basic NVMe→VRAM
+device-mem tests pass without a manual patch — only the 3 multi-queue/doorbell
+cases above remain. `docs/ROCXIO_CONFIG_MATRIX.md` describes the older
+bare-metal tiers (48/48 etc.) for historical reference.
 
 ---
 
@@ -440,4 +459,5 @@ there.
 | guest SSH never comes up | `serve` terminal (QEMU console) + `gen-vm.log`; `gpu-e2e` dies with "guest SSH never came up on 2223" after ~3 min |
 | guest "not provisioned" | the Ansible play didn't land `~/src/rocm-xio` / `/dev/rocm-xio` / the kmod — check `gen-vm.log`, rebuild with `-e FORCE=1` |
 | port already in use | `guard.sh` refuses a bound `SSH_PORT`; pick a free port (not `2222`) and re-map `-p` |
-| device-mem tests fail (43/48) | expected without the `XIO_DEVICE_MEM_UNCACHED` guest patch + `VRAM_DEV_INDEX` — see `docs/ROCXIO_CONFIG_MATRIX.md` |
+| ALL hardware/nvme tests SEGFAULT | GPU code-object mismatch: the qcow's `xio-tester` was built for the wrong arch. Set `guest_gpu_arch` / `rocm_xio_setup_offload_arch` to your GPU (e.g. `gfx1030`) and rebuild the qcow (`-e FORCE=1`). |
+| 3 device-mem/doorbell tests fail (90/93) | known deep multi-queue device-mem + doorbell-coherence faults (GPU HSA `0x1016`); documented follow-up, independent of the container |
