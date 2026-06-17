@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
         libglib2.0-dev libpixman-1-dev libslirp-dev flex bison \
         qemu-utils cloud-image-utils openssh-client iproute2 \
         ansible \
+        ovmf \
     && rm -rf /var/lib/apt/lists/*
 
 # ---- SPDK: clone fork, init submodules (NON-recursive), pkgdep, configure, build ----
